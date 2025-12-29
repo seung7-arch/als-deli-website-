@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkout | Al's Deli</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://js.stripe.com/v3/"></script>
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+
+<body class="bg-gray-50">
+
+  <!-- NAVIGATION -->
+  <nav class="bg-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 bg-red-600 rounded-full flex items-center justify-center text-white font-black text-xl">A</div>
+          <a href="index.html" class="text-2xl font-black text-gray-900">AL'S DELI</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- CHECKOUT FORM -->
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    
+    <div class="mb-8">
+      <h1 class="text-3xl font-black text-gray-900 mb-2">Checkout</h1>
+      <p class="text-gray-600">Complete your order details and payment</p>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-8">
+
+      <!-- LEFT: Customer Info Form -->
+      <div class="bg-white rounded-2xl shadow-lg p-6">
+        <h2 class="text-xl font-black text-gray-900 mb-6">Your Information</h2>
+
+        <form id="checkout-form" class="space-y-4">
+          
+          <div>
+            <label class="block text-sm font-bold text-gray-700 mb-2">Full Name *</label>
+            <input type="text" id="customer-name" required 
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500" 
+              placeholder="John Doe" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-bold text-gray-700 mb-2">Phone Number *</label>
+            <input type="tel" id="customer-phone" required 
+              pattern="[0-9]{3}-[0-9]{3}-[0-9]{4}" 
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500" 
+              placeholder="202-555-0123" />
+            <p class="text-xs text-gray-500 mt-1">Format: 202-555-0123</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-bold text-gray-700 mb-2">Pickup Time *</label>
+            <select id="pickup-time" required 
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500">
+              <option value="">Select pickup time...</option>
+              <option value="ASAP">ASAP (15-20 minutes)</option>
+              <option value="30min">30 minutes</option>
+              <option value="1hour">1 hour</option>
+              <option value="2hours">2 hours</option>
+              <option value="custom">Custom time (call to confirm)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-bold text-gray-700 mb-2">Special Instructions (Optional)</label>
+            <textarea id="special-instructions" rows="3" 
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500" 
+              placeholder="Any special requests or dietary restrictions..."></textarea>
+          </div>
+
+        </form>
+      </div>
+
+      <!-- RIGHT: Order Summary -->
+      <div class="bg-white rounded-2xl shadow-lg p-6">
+        <h2 class="text-xl font-black text-gray-900 mb-6">Order Summary</h2>
+
+        <div id="order-summary-list" class="space-y-3 mb-6 max-h-96 overflow-y-auto">
+          <!-- Items will be inserted here by JavaScript -->
+        </div>
+
+        <div class="border-t border-gray-200 pt-4 mb-6">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-gray-600">Subtotal</span>
+            <span id="subtotal-display" class="font-bold text-gray-900">$0.00</span>
+          </div>
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-gray-600">Tax (10%)</span>
+            <span id="tax-display" class="font-bold text-gray-900">$0.00</span>
+          </div>
+          <div class="flex justify-between items-center text-xl font-black text-gray-900 pt-2 border-t border-gray-200">
+            <span>Total</span>
+            <span id="total-display">$0.00</span>
+          </div>
+        </div>
+
+        <button id="pay-now-btn" onclick="proceedToPayment()" 
+          class="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-black text-lg rounded-2xl shadow-lg transform active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
+          disabled>
+          PAY NOW WITH STRIPE
+        </button>
+
+        <div class="mt-4 text-center">
+          <a href="order.html" class="text-sm text-gray-600 hover:text-red-600 font-semibold">← Back to Menu</a>
+        </div>
+
+        <div class="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+          </svg>
+          <span>Secure payment powered by Stripe</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // ============================================
+    // CONFIGURATION - UPDATE THESE VALUES
+    // ============================================
+    const STRIPE_PUBLISHABLE_KEY = 'pk_test_51Sb4D39C0u7jlQxKDZpES58npRa933GOm6A5XpyIOXiFTV8fKUxNKLoF3dGNDKVPhnMFjXusH3FPmj9oajRv0qy9000P0Tn1gV'; // Replace with your Stripe publishable key
+    const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/6egnrzfbvrcl0e471p4iqm2vdpowbqi1';
+    const TAX_RATE = 0.10; // 10% tax
+
+    // Initialize Stripe
+    const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+
+    let orderData = { items: [], total: 0 };
+    let subtotal = 0;
+    let tax = 0;
+    let total = 0;
+
+    // Load order from localStorage
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedOrder = localStorage.getItem('alsDeliOrder');
+      
+      if (!savedOrder) {
+        alert('Your cart is empty!');
+        window.location.href = 'order.html';
+        return;
+      }
+
+      try {
+        orderData = JSON.parse(savedOrder);
+        displayOrderSummary();
+      } catch (e) {
+        console.error('Failed to load order:', e);
+        alert('Error loading your order. Please try again.');
+        window.location.href = 'order.html';
+      }
+    });
+
+    // Display order summary
+    function displayOrderSummary() {
+      const summaryList = document.getElementById('order-summary-list');
+      const subtotalDisplay = document.getElementById('subtotal-display');
+      const taxDisplay = document.getElementById('tax-display');
+      const totalDisplay = document.getElementById('total-display');
+      const payBtn = document.getElementById('pay-now-btn');
+
+      summaryList.innerHTML = '';
+      subtotal = 0;
+
+      if (!orderData.items || orderData.items.length === 0) {
+        summaryList.innerHTML = '<p class="text-gray-500 text-center py-8">No items in cart</p>';
+        return;
+      }
+
+      orderData.items.forEach(item => {
+        const lineTotal = item.price * item.quantity;
+        subtotal += lineTotal;
+
+        const div = document.createElement('div');
+        div.className = 'flex justify-between items-start p-3 bg-gray-50 rounded-lg';
+        
+        const modsHtml = item.modifiers && item.modifiers.length > 0
+          ? `<div class="text-xs text-gray-500 mt-1">${item.modifiers.join(', ')}</div>`
+          : '';
+
+        div.innerHTML = `
+          <div class="flex-1">
+            <div class="font-bold text-gray-800">
+              ${item.quantity > 1 ? `${item.quantity}x ` : ''}${item.name}
+            </div>
+            ${modsHtml}
+          </div>
+          <div class="font-bold text-gray-900">$${lineTotal.toFixed(2)}</div>
+        `;
+
+        summaryList.appendChild(div);
+      });
+
+      tax = subtotal * TAX_RATE;
+      total = subtotal + tax;
+
+      subtotalDisplay.textContent = `$${subtotal.toFixed(2)}`;
+      taxDisplay.textContent = `$${tax.toFixed(2)}`;
+      totalDisplay.textContent = `$${total.toFixed(2)}`;
+
+      payBtn.disabled = false;
+    }
+
+    // Validate form and proceed to Stripe payment
+    async function proceedToPayment() {
+      const name = document.getElementById('customer-name').value.trim();
+      const phone = document.getElementById('customer-phone').value.trim();
+      const pickupTime = document.getElementById('pickup-time').value;
+      const instructions = document.getElementById('special-instructions').value.trim();
+
+      if (!name || !phone || !pickupTime) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      // Validate phone format
+      const phoneRegex = /^\d{3}-\d{3}-\d{4}$/;
+      if (!phoneRegex.test(phone)) {
+        alert('Please enter phone number in format: 202-555-0123');
+        return;
+      }
+
+      const payBtn = document.getElementById('pay-now-btn');
+      payBtn.disabled = true;
+      payBtn.textContent = 'PROCESSING...';
+
+      try {
+        // Create Stripe Checkout Session
+        const response = await createStripeCheckoutSession({
+          name,
+          phone,
+          pickupTime,
+          instructions,
+          items: orderData.items,
+          subtotal,
+          tax,
+          total
+        });
+
+        if (response.sessionId) {
+          // Redirect to Stripe Checkout
+          const result = await stripe.redirectToCheckout({
+            sessionId: response.sessionId
+          });
+
+          if (result.error) {
+            throw new Error(result.error.message);
+          }
+        } else {
+          throw new Error('Failed to create checkout session');
+        }
+
+      } catch (error) {
+        console.error('Payment error:', error);
+        alert('Payment processing failed. Please try again.');
+        payBtn.disabled = false;
+        payBtn.textContent = 'PAY NOW WITH STRIPE';
+      }
+    }
+
+    // Create Stripe Checkout Session
+    async function createStripeCheckoutSession(orderInfo) {
+      // IMPORTANT: In production, this should call YOUR backend API
+      // which creates the Stripe session server-side
+      // For now, we'll simulate this with Make.com webhook
+      
+      const payload = {
+        action: 'create_checkout',
+        customer_name: orderInfo.name,
+        customer_phone: orderInfo.phone,
+        pickup_time: orderInfo.pickupTime,
+        special_instructions: orderInfo.instructions,
+        items: orderInfo.items,
+        subtotal: orderInfo.subtotal,
+        tax: orderInfo.tax,
+        total: orderInfo.total,
+        source: 'website_checkout'
+      };
+
+      // THIS IS A PLACEHOLDER - YOU NEED TO IMPLEMENT SERVER-SIDE STRIPE SESSION CREATION
+      // See setup instructions in the deployment guide
+      
+      // For now, return mock session (REPLACE THIS IN PRODUCTION)
+      return {
+        sessionId: 'SETUP_REQUIRED' // This will be replaced with real Stripe session
+      };
+    }
+
+    // Phone number formatting
+    document.getElementById('customer-phone').addEventListener('input', (e) => {
+      let value = e.target.value.replace(/\D/g, '');
+      if (value.length > 3 && value.length <= 6) {
+        value = value.slice(0, 3) + '-' + value.slice(3);
+      } else if (value.length > 6) {
+        value = value.slice(0, 3) + '-' + value.slice(3, 6) + '-' + value.slice(6, 10);
+      }
+      e.target.value = value;
+    });
+  </script>
+
+</body>
+</html>
