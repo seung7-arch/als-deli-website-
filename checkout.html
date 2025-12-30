@@ -270,33 +270,26 @@
       }
     }
 
-    // Create Stripe Checkout Session
-    async function createStripeCheckoutSession(orderInfo) {
-      // IMPORTANT: In production, this should call YOUR backend API
-      // which creates the Stripe session server-side
-      // For now, we'll simulate this with Make.com webhook
-      
-      const payload = {
-        action: 'create_checkout',
-        customer_name: orderInfo.name,
-        customer_phone: orderInfo.phone,
-        pickup_time: orderInfo.pickupTime,
-        special_instructions: orderInfo.instructions,
-        items: orderInfo.items,
-        subtotal: orderInfo.subtotal,
-        tax: orderInfo.tax,
-        total: orderInfo.total,
-        source: 'website_checkout'
-      };
+ // Create Stripe Checkout Session
+async function createStripeCheckoutSession(orderInfo) {
+  const response = await fetch('https://hook.us2.make.com/6egnrzfbvrcl0e471p4iqm2vdpowbqi1', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      customer_name: orderInfo.name,
+      customer_phone: orderInfo.phone,
+      pickup_time: orderInfo.pickupTime,
+      special_instructions: orderInfo.instructions,
+      items: JSON.stringify(orderInfo.items),
+      total: orderInfo.total,
+      source: 'website_checkout'
+    })
+  });
 
-      // THIS IS A PLACEHOLDER - YOU NEED TO IMPLEMENT SERVER-SIDE STRIPE SESSION CREATION
-      // See setup instructions in the deployment guide
-      
-      // For now, return mock session (REPLACE THIS IN PRODUCTION)
-      return {
-        sessionId: 'SETUP_REQUIRED' // This will be replaced with real Stripe session
-      };
-    }
+  return await response.json();
+}
 
     // Phone number formatting
     document.getElementById('customer-phone').addEventListener('input', (e) => {
