@@ -347,13 +347,27 @@ function toggleSec(id, show) {
 }
 
 function selectStandardSub() {
-  const toppings = document.querySelectorAll('[data-group="toppingMulti"]');
-  toppings.forEach(btn => btn.classList.add("selected"));
+  // Only select the 5 standard toppings
+  const standardToppings = ['Lettuce', 'Tomato', 'Mayonnaise', 'Ketchup', 'Mustard'];
+  
+  document.querySelectorAll('[data-group="toppingMulti"]').forEach(btn => {
+    const val = btn.getAttribute('data-val');
+    if (standardToppings.includes(val)) {
+      btn.classList.add("selected");
+    }
+  });
 }
 
 function selectStandardBreakfast() {
-  const toppings = document.querySelectorAll('[data-group="bfToppingMulti"]');
-  toppings.forEach(btn => btn.classList.add("selected"));
+  // Only select the 5 standard toppings
+  const standardToppings = ['Lettuce', 'Tomato', 'Mayonnaise', 'Ketchup', 'Mustard'];
+  
+  document.querySelectorAll('[data-group="bfToppingMulti"]').forEach(btn => {
+    const val = btn.getAttribute('data-val');
+    if (standardToppings.includes(val)) {
+      btn.classList.add("selected");
+    }
+  });
 }
 
 // CHIP SELECTION
