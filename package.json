@@ -1,0 +1,9 @@
+{
+  "name": "als-deli-website",
+  "version": "1.0.0",
+  "description": "Al's Deli online ordering system",
+  "dependencies": {
+    "stripe": "^14.0.0",
+    "@supabase/supabase-js": "^2.39.0"
+  }
+}
