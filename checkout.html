@@ -132,6 +132,17 @@
           <!-- Items will be inserted here by JavaScript -->
         </div>
 
+        <!-- Minimum Order Notice -->
+        <div id="minimum-notice" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 hidden">
+          <div class="flex items-start gap-2">
+            <span class="text-yellow-600 text-lg">⚠️</span>
+            <div class="text-sm text-yellow-800">
+              <span class="font-bold">$10.00 minimum order required</span><br>
+              <span id="remaining-amount">Add more items to checkout</span>
+            </div>
+          </div>
+        </div>
+
         <div class="border-t border-gray-200 pt-4 mb-6">
           <div class="flex justify-between items-center mb-2">
             <span class="text-gray-600">Subtotal</span>
@@ -182,6 +193,7 @@
     // ============================================
     const STRIPE_PUBLISHABLE_KEY = 'pk_live_51Sb4D39C0u7jlQxKCcQT3DtP3PuBeFjKi8zJjbyFvpssYAUK7xNq4yjgsW9HL6TQA69punF3ZhQu42gKtPjI4KGE00YAHhthjz';
     const TAX_RATE = 0.10; // 10% tax
+    const MINIMUM_ORDER = 10.00; // $10 minimum before tax
 
     // Initialize Stripe
     const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
@@ -251,12 +263,15 @@
       const taxDisplay = document.getElementById('tax-display');
       const totalDisplay = document.getElementById('total-display');
       const payBtn = document.getElementById('pay-now-btn');
+      const notice = document.getElementById('minimum-notice');
+      const remainingAmount = document.getElementById('remaining-amount');
 
       summaryList.innerHTML = '';
       subtotal = 0;
 
       if (!orderData.items || orderData.items.length === 0) {
         summaryList.innerHTML = '<p class="text-gray-500 text-center py-8">No items in cart</p>';
+        notice.classList.add('hidden');
         return;
       }
 
@@ -291,7 +306,32 @@
       taxDisplay.textContent = `$${tax.toFixed(2)}`;
       totalDisplay.textContent = `$${total.toFixed(2)}`;
 
-      payBtn.disabled = false;
+      // Update minimum order notice
+      if (subtotal < MINIMUM_ORDER && subtotal > 0) {
+        notice.classList.remove('hidden');
+        const remaining = MINIMUM_ORDER - subtotal;
+        remainingAmount.textContent = `Add $${remaining.toFixed(2)} more to checkout`;
+      } else {
+        notice.classList.add('hidden');
+      }
+
+      // Check minimum order for pay button
+      if (subtotal < MINIMUM_ORDER) {
+        payBtn.disabled = true;
+        payBtn.innerHTML = `
+          <span class="text-sm">
+            ⚠️ Minimum order: $${MINIMUM_ORDER.toFixed(2)}<br>
+            Add $${(MINIMUM_ORDER - subtotal).toFixed(2)} more
+          </span>
+        `;
+        payBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+        payBtn.classList.add('bg-gray-500', 'cursor-not-allowed');
+      } else {
+        payBtn.disabled = false;
+        payBtn.innerHTML = '<span id="btn-text">PAY NOW</span><span id="btn-spinner" class="hidden"><svg class="animate-spin inline-block h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> PROCESSING...</span>';
+        payBtn.classList.remove('bg-gray-500', 'cursor-not-allowed');
+        payBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+      }
     }
 
     // Process payment
