@@ -1,4 +1,4 @@
-const { createClient } = require('@supabase/supabase-js');
+const { createClient } = require("@supabase/supabase-js");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -6,40 +6,47 @@ const supabase = createClient(
 );
 
 exports.handler = async (event) => {
-  const qrUuid = event.queryStringParameters?.qr_uuid;
+  // CORS (safe even if same-origin)
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "GET,OPTIONS",
+  };
 
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers, body: "" };
+  }
+
+  const qrUuid = event.queryStringParameters?.qr_uuid;
   if (!qrUuid) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'qr_uuid required' })
-    };
+    return { statusCode: 400, headers, body: JSON.stringify({ error: "qr_uuid required" }) };
   }
 
   try {
     const { data, error } = await supabase
-      .from('tickets')
-      .select('status')
-      .eq('qr_uuid', qrUuid)
-      .single();
+      .from("tickets")
+      .select("status, order_number, source")
+      .eq("qr_uuid", qrUuid)
+      .maybeSingle();
 
-    if (error) {
-      return {
-        statusCode: 404,
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ status: 'pending' })
-      };
+    // Not found -> pending
+    if (error || !data) {
+      return { statusCode: 200, headers, body: JSON.stringify({ status: "pending" }) };
     }
+
+    // Normalize status so kiosk comparisons are reliable
+    const status = String(data.status || "pending").toLowerCase();
 
     return {
       statusCode: 200,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ status: data.status })
+      headers,
+      body: JSON.stringify({
+        status,                         // "pending" | "paid" | "cashier" | etc (lowercase)
+        order_number: data.order_number || null,
+        source: data.source || null,
+      }),
     };
-  } catch (error) {
-    return {
-      statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: error.message })
-    };
+  } catch (err) {
+    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
 };
