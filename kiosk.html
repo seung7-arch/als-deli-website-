@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Al's Deli - Voice Kiosk</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
     body { font-family: 'Inter', sans-serif; -webkit-user-select: none; user-select: none; }
@@ -19,27 +20,26 @@
       0% { transform: scale(0.33); opacity: 0.8; }
       80%, 100% { opacity: 0; transform: scale(1); }
     }
-    
-    .chip.highlight {
-      background-color: #FEF9C3;
-      border-color: #FACC15;
-      color: #713F12;
-      font-weight: 900;
-    }
+	/* Highlight important modifiers */
+.chip.highlight {
+  background-color: #FEF9C3; /* light yellow */
+  border-color: #FACC15;
+  color: #713F12;
+  font-weight: 900;
+}
 
     .pulse-ring::before {
       content: ''; position: absolute; left: 0; top: 0; display: block; width: 100%; height: 100%;
       background-color: rgba(220, 38, 38, 0.6); border-radius: 50%;
       animation: pulse-ring 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
     }
-    
     @keyframes breathe {
       0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
       70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
       100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
     }
     .btn-breathe { animation: breathe 2s infinite; }
-    
+/* Scrolling banner animation */
     @keyframes scroll {
       0% { transform: translateX(0); }
       100% { transform: translateX(-33.333%); }
@@ -57,7 +57,6 @@
         url('https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=1965&auto=format&fit=crop');
       background-size: cover; background-position: center;
     }
-    
     .menu-row {
       display: flex; justify-content: space-between; align-items: center;
       padding: 16px; background: white; border: 1px solid #e5e7eb;
@@ -65,6 +64,7 @@
     }
     .menu-row:active { background-color: #fee2e2; border-color: #b91c1c; transform: scale(0.98); }
 
+    /* Customizer chips */
     .chip{
       border:1px solid #e5e7eb; border-radius:14px; padding:12px 10px;
       font-weight:800; font-size:13px; background:#fff; color:#111827;
@@ -77,8 +77,11 @@
 
 <body class="bg-gray-100 h-screen overflow-hidden text-gray-800">
 
-  <!-- LANDING PAGE -->
+  <!-- =======================
+       LANDING PAGE (UPDATED LAYOUT)
+  ======================== -->
   <div id="landing-page" class="absolute inset-0 z-50 bg-landing flex flex-col justify-between p-6 transition-opacity duration-500">
+
     <div class="flex justify-between items-start">
       <div class="flex flex-col gap-1">
         <div class="flex items-center gap-3">
@@ -90,6 +93,7 @@
         </button>
       </div>
 
+      <!-- UPDATED: Small mic button in corner -->
       <button onclick="activateVoiceMode()" class="relative group">
         <div class="absolute w-full h-full rounded-full bg-red-600/20 animate-ping"></div>
         <div class="relative w-16 h-16 bg-red-600 rounded-full shadow-lg flex items-center justify-center transform transition-all duration-200 group-hover:scale-105 group-active:scale-95 border-2 border-white">
@@ -110,9 +114,8 @@
         </p>
       </div>
 
-     <button id="open-menu-btn" class="relative group mb-8">
-
-
+      <!-- UPDATED: BIG MENU BUTTON CENTER -->
+      <button onclick="activateMenuMode()" class="relative group mb-8">
         <div class="absolute inset-0 rounded-3xl bg-yellow-400 blur-xl opacity-50 group-hover:opacity-75 transition-opacity"></div>
         <div class="relative bg-gradient-to-br from-yellow-400 to-yellow-500 px-12 py-8 rounded-3xl shadow-2xl transform transition-all duration-200 group-hover:scale-105 group-active:scale-95 border-4 border-white">
           <div class="flex items-center gap-4">
@@ -127,6 +130,7 @@
       <p class="text-white/70 text-sm font-medium">Tap the menu to browse and build your order</p>
     </div>
 
+    <!-- SCROLLING BANNER (Fixed Position at Bottom) -->
     <div class="fixed bottom-0 left-0 right-0 w-full overflow-hidden bg-gradient-to-r from-yellow-400 to-yellow-500 py-3 border-t-4 border-white shadow-2xl z-50">
       <div class="whitespace-nowrap animate-scroll">
         <span class="inline-block text-gray-900 font-black text-lg md:text-xl px-8">
@@ -144,12 +148,14 @@
     <div class="text-center text-white/30 text-xs uppercase tracking-widest font-medium mb-16">
       Patent Pending • Powered by Volosystems.AI
     </div>
-  </div>
-
-  <!-- SPLIT SCREEN APP -->
+  </div>  <!-- =======================
+       SPLIT SCREEN APP
+  ======================== -->
   <div id="split-screen" class="absolute inset-0 z-40 flex hidden bg-white">
+
     <!-- LEFT: MENU / TRANSCRIPT -->
     <section class="w-1/2 h-full flex flex-col border-r border-gray-200 bg-gray-50 relative">
+
       <div class="p-4 bg-white border-b border-gray-200 flex justify-between items-center shadow-sm z-10 sticky top-0">
         <div class="flex items-center gap-2">
           <button onclick="returnToLanding()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors">
@@ -164,7 +170,7 @@
         </div>
       </div>
 
-       <!-- MENU VIEW -->
+      <!-- MENU VIEW -->
       <div id="menu-view" class="flex-1 overflow-y-auto p-4 kiosk-scroll hidden bg-white">
 
         <div class="font-black text-red-700 text-2xl border-b-4 border-red-700 mb-4 mt-2 pb-2 uppercase tracking-wider sticky top-0 bg-white py-2 z-10">
@@ -301,9 +307,18 @@
         <div id="transcript-log" class="flex-1 overflow-y-auto space-y-4 kiosk-scroll pr-2">
           <div class="text-center text-gray-400 text-sm mt-10">
             <p>Mike is listening...</p>
+            <p class="text-xs mt-2">"I want a cheeseburger sub"</p>
           </div>
         </div>
+
+        <div class="h-16 flex items-center justify-center gap-1 mt-4 opacity-50">
+          <div class="w-1 h-4 bg-red-500 rounded animate-pulse"></div>
+          <div class="w-1 h-8 bg-red-500 rounded animate-pulse" style="animation-delay: 0.1s"></div>
+          <div class="w-1 h-6 bg-red-500 rounded animate-pulse" style="animation-delay: 0.2s"></div>
+          <div class="w-1 h-4 bg-red-500 rounded animate-pulse" style="animation-delay: 0.3s"></div>
+        </div>
       </div>
+
     </section>
 
     <!-- RIGHT: CART -->
@@ -318,6 +333,7 @@
 
       <div class="flex-1 overflow-y-auto p-6 bg-gray-50/50 relative">
         <ul id="order-list" class="space-y-3 pb-20"></ul>
+
         <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-gray-300 pointer-events-none">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
@@ -336,6 +352,7 @@
         </button>
       </div>
     </section>
+
   </div>
 
   <!-- =======================
@@ -542,30 +559,9 @@
     </div>
   </div>
 
-
-
-  <!-- QR PAYMENT MODAL -->
-  <div id="pay-modal" class="hidden fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-6">
-    <div class="bg-white rounded-3xl p-6 w-full max-w-md text-center">
-      <div class="text-2xl font-black">Scan to Pay</div>
-      <div class="text-sm text-gray-500 font-semibold mt-1">Apple Pay • Google Pay • Card</div>
-      
-      <canvas id="pay-qr" class="mx-auto mt-6" width="260" height="260"></canvas>
-      
-      <div id="pay-status" class="mt-5 text-lg font-black">Waiting for payment…</div>
-      <div id="pay-order" class="mt-2 text-xs text-gray-400 font-mono"></div>
-      
-      <button onclick="cashierOverride()" class="mt-4 w-full py-4 rounded-2xl font-black bg-yellow-400 hover:bg-yellow-500">
-        💳 Pay at Cashier
-      </button>
-
-      <button onclick="cancelPaymentFlow()" class="mt-3 w-full py-4 rounded-2xl font-black bg-gray-100 hover:bg-gray-200">
-        Cancel
-      </button>
-    </div>
-  </div>
-
-  <!-- DEBUG PANEL -->
+  <!-- =======================
+       DEBUG PANEL
+  ======================== -->
   <section id="debug-panel" class="fixed bottom-0 left-0 w-full md:w-96 bg-gray-900 border-t border-gray-700 shadow-2xl max-h-60 flex flex-col text-left text-xs hidden z-[100] font-mono text-green-400">
     <div class="flex items-center justify-between px-3 py-2 bg-gray-800 border-b border-gray-700">
       <div class="font-bold">ADMIN LOGS</div>
@@ -576,398 +572,774 @@
     </div>
   </section>
 
-  <!-- ✅ LOAD QR CODE LIBRARY FIRST -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
-  
-  <!-- ✅ THEN YOUR MAIN SCRIPT -->
   <script>
-    // Your entire script stays exactly the same...
-    // (I'm abbreviating here - use ALL your existing JavaScript)
-    
-    const VAPI_PUBLIC_KEY = "d454a336-9928-4cb2-8102-2707249b3f28";
+    // CONFIG
+    const VAPI_PUBLIC_KEY   = "d454a336-9928-4cb2-8102-2707249b3f28";
     const VAPI_ASSISTANT_ID = "1bead665-414c-434b-929a-ad1240505b35";
-    const MAKE_WEBHOOK_URL = "https://hook.us2.make.com/xaqgz1i35i8al312nkm76to5actknvkc";
+    const MAKE_WEBHOOK_URL  = "https://hook.us2.make.com/xaqgz1i35i8al312nkm76to5actknvkc";
 
     let vapi = null;
     let isCallActive = false;
     let currentTotal = 0.0;
     let orderLines = [];
     let walkInCount = 1;
-    let pollTimer = null;
-    let timeoutTimer = null;
-    let activeQrUuid = null;
-    const PAYMENT_TIMEOUT_MS = 120000;
-// =======================
-// CUSTOMIZER STATE
-// =======================
-let custItemName = "";
-let custBasePrice = 0;
-let custNotes = "";
-let custSelections = {};     // single-select groups like bread/toasted/meatChoice
-let custMulti = {};          // multi-select groups like toppingMulti/sauceMulti/etc
-let custBillables = [];      // add-ons with price impact
 
-function $(id){ return document.getElementById(id); }
+    // UPDATED PRICE BOOK
+    const PRICE_BOOK = {
+      "the bleaker st (only)": 14.00,
+      "the bleaker st w/fries": 16.00,
+      "the reuben (only)": 14.00,
+      "the reuben w/fries": 16.00,
+      "bulgogi steak sandwich (only)": 14.00,
+      "bulgogi steak sandwich w/fries": 16.00,
+      "chicken sandwich (only)": 13.00,
+      "chicken sandwich w/fries": 14.50,
+      "chicken tenders (5) w/fries": 16.00,
+      "chicken nuggets (10) w/fries": 14.00,
+      "cheeseburger sub (only)": 16.00,
+      "cheeseburger sub w/fries": 18.00,
+      "cheeseburger (only)": 13.00,
+      "cheeseburger w/fries": 14.50,
+      "steak & cheese sub (only)": 14.00,
+      "steak & cheese sub w/fries": 16.00,
+      "whiting sub (only)": 14.00,
+      "whiting sub w/fries": 16.00,
+      "salmon burger sub (only)": 14.00,
+      "salmon burger sub w/fries": 16.00,
+      "tuna sub (only)": 14.00,
+      "tuna sub w/fries": 16.00,
+      "half smoke": 7.00,
+      "cold cut sandwich (only)": 14.00,
+      "cold cut sandwich w/fries": 16.00,
+      "turkey sub (only)": 14.00,
+      "turkey sub w/fries": 16.00,
+      "pork chop sandwich w/fries": 15.00,
+      "flounder platter": 17.00,
+    };
 
-function openCustomizer(itemName, price) {
-  // Save base item
-  custItemName = itemName;
-  custBasePrice = Number(price) || 0;
-
-  // Reset state
-  custNotes = "";
-  custSelections = {};
-  custMulti = {};
-  custBillables = [];
-
-  // Reset UI chips + notes
-  resetAllChips();
-  if ($("cust-notes")) $("cust-notes").value = "";
-
-  // Fill header
-  $("cust-item-name").textContent = custItemName;
-  $("cust-item-price").textContent = `$${custBasePrice.toFixed(2)}`;
-
-  // Show/hide sections based on item
-  hideAllCustomizerSections();
-  showSectionsForItem(custItemName);
-
-  // Wire chip clicks (safe to call every time)
-  bindChipClickHandlers();
-
-  // Show overlay
-  $("customizer-overlay").classList.remove("hidden");
-}
-
-function closeCustomizer() {
-  $("customizer-overlay").classList.add("hidden");
-}
-
-// Hide all conditional sections
-function hideAllCustomizerSections() {
-  const ids = [
-    "sec-breakfast-toppings",
-    "sec-sub-toppings",
-    "sec-bread",
-    "sec-toasted",
-    "sec-eggs-sandwich",
-    "sec-meat-choice-platters",
-    "sec-bread-upsell",
-    "sec-extra-meat-breakfast",
-    "sec-extra-meat-lunch",
-    "sec-seafood-bread",
-    "sec-sauces",
-    "sec-reuben-note"
-  ];
-  ids.forEach(id => $(id)?.classList.add("hidden"));
-}
-
-// Decide what sections to show for each item
-function showSectionsForItem(name) {
-  const n = name.toLowerCase();
-
-  const isBreakfastSandwich =
-    n.includes("sandwich") && (n.includes("egg") || n.includes("blt") || n.includes("croissant") || n.includes("sub"));
-
-  const isBreakfastPlatter =
-    n.includes("platter") || n.includes("pancakes") || n.includes("waffles") || n.includes("french toast") || n.includes("omelette");
-
-  const isSubOrSandwich =
-    n.includes("sub") || n.includes("reuben") || n.includes("bleaker") || n.includes("bulgogi steak") || n.includes("cold cut") || n.includes("turkey blt");
-
-  const isSeafoodDinner =
-    n.includes("platter") && (n.includes("whiting") || n.includes("croaker") || n.includes("tilapia") || n.includes("flounder") || n.includes("shrimp") || n.includes("combo seafood") || n.includes("crab stick"));
-
-  // Breakfast Sandwich flow
-  if (isBreakfastSandwich && !isBreakfastPlatter) {
-    $("sec-bread")?.classList.remove("hidden");
-    $("sec-toasted")?.classList.remove("hidden");
-    $("sec-eggs-sandwich")?.classList.remove("hidden");
-    $("sec-breakfast-toppings")?.classList.remove("hidden");
-    $("sec-extra-meat-breakfast")?.classList.remove("hidden");
-  }
-
-  // Subs/Sandwiches toppings + sauces
-  if (isSubOrSandwich) {
-    $("sec-sub-toppings")?.classList.remove("hidden");
-    $("sec-sauces")?.classList.remove("hidden");
-    $("sec-extra-meat-lunch")?.classList.remove("hidden");
-  }
-
-  // Reuben note
-  if (n.includes("reuben")) {
-    $("sec-reuben-note")?.classList.remove("hidden");
-  }
-
-  // Breakfast platters: require meat choice for certain items
-  if (isBreakfastPlatter) {
-    // Only require meat if user tapped generic breakfast item where meat isn't in the name
-    const alreadyHasMeat =
-      n.includes("bacon") || n.includes("sausage") || n.includes("ham") || n.includes("scrapple") || n.includes("beef bacon") || n.includes("turkey");
-
-    if (!alreadyHasMeat) {
-      $("sec-meat-choice-platters")?.classList.remove("hidden");
+    function normName(s) {
+      return String(s || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .replace(/\s*\(only\)\s*/g, " (only)")
+        .replace(/with fries/g, "w/fries");
     }
-    $("sec-bread-upsell")?.classList.remove("hidden");
-    $("sec-sauces")?.classList.remove("hidden");
-  }
 
-  // Seafood bread upsell
-  if (isSeafoodDinner) {
-    $("sec-seafood-bread")?.classList.remove("hidden");
-    $("sec-sauces")?.classList.remove("hidden");
+    function normalizeBreakfastName(nameRaw) {
+      const n = normName(nameRaw);
+      const looksLikeBreakfastEgg = n.includes("& egg") && !n.includes("sub") && !n.includes("platter");
+      const alreadySandwich = n.includes("sandwich") || n.includes("croissant") || n.includes("blt");
+      if (looksLikeBreakfastEgg && !alreadySandwich) {
+        return `${String(nameRaw).trim()} Sandwich`;
+      }
+      return String(nameRaw).trim();
+    }
+
+    // DOM
+    const landingPage = document.getElementById('landing-page');
+    const splitScreen = document.getElementById('split-screen');
+    const menuView = document.getElementById('menu-view');
+    const transcriptView = document.getElementById('transcript-view');
+    const leftPanelTitle = document.getElementById('left-panel-title');
+    const miniVoiceControls = document.getElementById('mini-voice-controls');
+    const vapiToggleBtn = document.getElementById('vapi-toggle-btn');
+    const transcriptLog = document.getElementById('transcript-log');
+    const orderList = document.getElementById('order-list');
+    const emptyState = document.getElementById('empty-state');
+    const totalDisplay = document.getElementById('total-display');
+    const manualSubmitBtn = document.getElementById('manual-submit-btn');
+    const openDebugBtn = document.getElementById('open-debug');
+    const debugPanel = document.getElementById('debug-panel');
+    const debugCloseBtn = document.getElementById('debug-close');
+    const rawLog = document.getElementById('raw-log');
+
+    // VIEW CONTROLLER
+    function activateVoiceMode() {
+      landingPage.classList.add('hidden');
+      splitScreen.classList.remove('hidden');
+      menuView.classList.add('hidden');
+      transcriptView.classList.remove('hidden');
+      leftPanelTitle.textContent = "Live Transcript";
+      miniVoiceControls.classList.remove('hidden');
+      clearTranscript();
+      startCall();
+    }
+
+    function activateMenuMode() {
+      landingPage.classList.add('hidden');
+      splitScreen.classList.remove('hidden');
+      transcriptView.classList.add('hidden');
+      menuView.classList.remove('hidden');
+      leftPanelTitle.textContent = "Menu";
+      miniVoiceControls.classList.add('hidden');
+      if (isCallActive) endCall();
+    }
+
+    function returnToLanding() {
+      if (isCallActive) endCall();
+      splitScreen.classList.add('hidden');
+      landingPage.classList.remove('hidden');
+    }
+
+    vapiToggleBtn.addEventListener('click', () => {
+      if (isCallActive) endCall();
+      else startCall();
+    });
+
+    // VAPI
+    function startCall() {
+      if (!vapi) return;
+      vapi.start(VAPI_ASSISTANT_ID);
+      vapiToggleBtn.textContent = "STOP";
+      vapiToggleBtn.classList.replace('bg-green-600', 'bg-red-600');
+    }
+
+    function endCall() {
+      if (!vapi) return;
+      vapi.stop();
+      vapiToggleBtn.textContent = "SPEAK";
+      vapiToggleBtn.classList.replace('bg-red-600', 'bg-green-600');
+    }
+
+    function setupVapiEvents() {
+      vapi.on("call-start", () => { isCallActive = true; });
+      vapi.on("call-end", () => { isCallActive = false; });
+
+      vapi.on("message", (msg) => {
+        if (msg.type === "transcript" && msg.transcriptType === "final") {
+          const who = msg.role === "assistant" ? "Mike" : "User";
+          logTranscript(who, msg.transcript);
+        }
+        if (msg.type === "function-call" && msg.functionCall) {
+          handleSingleToolCall(msg.functionCall.name, msg.functionCall.parameters, { type: "function-call" });
+        }
+        if (msg.type === "tool-calls" && Array.isArray(msg.toolCallList)) {
+          msg.toolCallList.forEach(tool => {
+            handleSingleToolCall(tool.function.name, tool.function.arguments, { type: "tool-calls", toolCallId: tool.id });
+          });
+        }
+      });
+    }
+
+    // ORDER LOGIC
+    function addItemToReceipt(itemName, price, modifiers, quantity = 1) {
+      itemName = normalizeBreakfastName(itemName);
+      const key = normName(itemName);
+      const forcedPrice = PRICE_BOOK[key];
+      const numPrice = (typeof forcedPrice === "number") ? forcedPrice : parseFloat(price);
+      if (isNaN(numPrice) || numPrice <= 0) return;
+      const qty = quantity > 0 ? quantity : 1;
+      const modsArray = Array.isArray(modifiers) ? modifiers : [];
+      const modsString = modsArray.sort().join(",");
+
+      const existingItem = orderLines.find(item =>
+        item.name === itemName &&
+        item.modifiers.sort().join(",") === modsString
+      );
+
+      if (existingItem) {
+        existingItem.quantity += qty;
+      } else {
+        orderLines.push({
+          name: itemName,
+          price: numPrice,
+          modifiers: modsArray,
+          quantity: qty
+        });
+      }
+
+      renderOrderList();
+    }
+
+    function removeItemFromReceipt(index) {
+      if (index > -1 && index < orderLines.length) {
+        currentTotal -= (orderLines[index].price * orderLines[index].quantity);
+        orderLines.splice(index, 1);
+      }
+      renderOrderList();
+    }
+
+    function renderOrderList() {
+      orderList.innerHTML = "";
+      currentTotal = 0;
+
+      if (orderLines.length === 0) {
+        emptyState.classList.remove('hidden');
+        manualSubmitBtn.disabled = true;
+      } else {
+        emptyState.classList.add('hidden');
+        manualSubmitBtn.disabled = false;
+      }
+
+      orderLines.forEach((item, index) => {
+        const lineTotal = item.price * item.quantity;
+        currentTotal += lineTotal;
+
+        const li = document.createElement("li");
+        li.className = "flex justify-between items-start border border-gray-100 bg-white p-4 rounded-xl shadow-sm";
+        li.style.cursor = "pointer";
+        li.onclick = () => removeItemFromReceipt(index);
+
+        const modsHtml = item.modifiers.length > 0
+          ? `<div class="text-xs text-gray-500 mt-1">+ ${item.modifiers.join(", ")}</div>`
+          : "";
+
+        const qtyBadge = item.quantity > 1
+          ? `<span class="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full mr-2">x${item.quantity}</span>`
+          : "";
+
+        li.innerHTML = `
+          <div class="pointer-events-none flex-1">
+            <div class="flex items-center">
+              ${qtyBadge}
+              <div class="font-bold text-gray-800 text-lg leading-tight">${item.name}</div>
+            </div>
+            ${modsHtml}
+          </div>
+          <div class="flex flex-col items-end gap-1 ml-4">
+            <div class="font-bold text-gray-900 text-lg">$${lineTotal.toFixed(2)}</div>
+            <div class="text-red-400 text-[10px] font-bold uppercase tracking-wider">Remove</div>
+          </div>
+        `;
+        orderList.appendChild(li);
+      });
+
+      totalDisplay.textContent = "$" + currentTotal.toFixed(2);
+    }
+
+    function clearOrder() {
+      orderLines = [];
+      currentTotal = 0.0;
+      orderList.innerHTML = "";
+      updateTotals();
+    }
+
+    function updateTotals() {
+      if (currentTotal < 0) currentTotal = 0;
+      totalDisplay.textContent = "$" + currentTotal.toFixed(2);
+
+      if (orderLines.length === 0) {
+        manualSubmitBtn.disabled = true;
+        emptyState.classList.remove('hidden');
+      } else {
+        manualSubmitBtn.disabled = false;
+        emptyState.classList.add('hidden');
+      }
+    }
+
+    // TRANSCRIPT
+    function logTranscript(role, text) {
+      if (!text) return;
+      const div = document.createElement('div');
+      const isMike = role === "Mike";
+
+      div.className = `p-3 rounded-2xl max-w-[85%] text-sm ${isMike
+        ? "bg-white border border-gray-200 text-gray-800 self-start rounded-tl-none shadow-sm"
+        : "bg-blue-600 text-white self-end rounded-tr-none shadow-md"}`;
+
+      div.innerHTML = `<div class="text-[10px] font-bold mb-1 opacity-70 uppercase">${isMike ? "Mike" : "You"}</div>${text}`;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = `flex w-full ${isMike ? "justify-start" : "justify-end"} animate-[fadeIn_0.2s_ease-out]`;
+      wrapper.appendChild(div);
+
+      transcriptLog.appendChild(wrapper);
+
+      setTimeout(() => {
+        transcriptLog.scrollTop = transcriptLog.scrollHeight;
+      }, 50);
+
+      logToDebug(role, text);
+    }
+
+    function clearTranscript() {
+      transcriptLog.innerHTML = `<div class="text-center text-gray-400 text-sm mt-10"><p>Mike is listening...</p></div>`;
+    }
+
+    function logToDebug(role, text) {
+      const dLine = document.createElement('div');
+      const time = new Date().toLocaleTimeString().split(" ")[0];
+      dLine.textContent = `[${time}] ${role}: ${text}`;
+      rawLog.appendChild(dLine);
+      rawLog.scrollTop = rawLog.scrollHeight;
+    }
+
+    // TOOL CALLS
+    async function handleSingleToolCall(fnNameRaw, rawParams, ctx) {
+      if (!fnNameRaw) return;
+      let params = rawParams;
+      if (typeof params === "string") { try { params = JSON.parse(params); } catch (_) {} }
+
+      const normalized = fnNameRaw.toLowerCase();
+      logToDebug("TOOL", `${normalized} called`);
+
+      if (normalized === "update_screen") {
+        const action = (params.action || "add").toLowerCase();
+        const itemName = params.item_name || params.item || "Item";
+        const price = parseFloat(params.price || 0);
+        const qty = parseInt(params.quantity || 1);
+        const mods = params.modifiers || [];
+
+        if (action === "remove") {
+          removeItemsLogic(itemName, qty);
+        } else {
+          addItemToReceipt(itemName, price, mods, qty);
+        }
+
+        if (ctx.type === "tool-calls") {
+          vapi.send({
+            type: "tool-calls-result",
+            toolCallList: [{ toolCallId: ctx.toolCallId, result: { items: orderLines, total: currentTotal } }]
+          });
+        }
+      }
+
+      if (normalized.includes("submit")) {
+        await submitOrderManually();
+        if (ctx.type === "tool-calls") {
+          vapi.send({ type: "tool-calls-result", toolCallList: [{ toolCallId: ctx.toolCallId, result: "Order Submitted" }] });
+        }
+      }
+    }
+
+    function removeItemsLogic(name, qty) {
+      let removedCount = 0;
+      const newOrderLines = [];
+      for (const item of orderLines) {
+        if (item.name.toLowerCase() === name.toLowerCase() && removedCount < qty) {
+          removedCount++;
+          currentTotal -= item.price;
+        } else {
+          newOrderLines.push(item);
+        }
+      }
+      orderLines = newOrderLines;
+      renderOrderList();
+      updateTotals();
+    }
+
+  
+let pollTimer = null;
+let timeoutTimer = null;
+let activeQrUuid = null;
+const PAYMENT_TIMEOUT_MS = 120000; // 120 seconds
+
+function clearPaymentTimers() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (timeoutTimer) { clearTimeout(timeoutTimer); timeoutTimer = null; }
+}
+
+async function submitOrderManually() {
+  if (orderLines.length === 0) return;
+
+  manualSubmitBtn.disabled = true;
+  manualSubmitBtn.textContent = "CREATING PAYMENT…";
+
+  try {
+    const res = await fetch("/.netlify/functions/create-checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        guest_name: `Walk-In #${walkInCount}`,
+        items: orderLines,
+        total: Number(currentTotal.toFixed(2)),
+        source: "kiosk"
+      })
+    });
+
+    const data = await res.json();
+    const { checkout_url, qr_uuid } = data;
+
+    if (!checkout_url || !qr_uuid) {
+      throw new Error("Missing checkout_url or qr_uuid from create-checkout-session");
+    }
+
+    activeQrUuid = qr_uuid;
+
+    // UI
+    document.getElementById("pay-status").textContent = "Waiting for payment…";
+    showPayModal(checkout_url, qr_uuid);
+
+    // Start polling + timeout
+    clearPaymentTimers();
+
+    pollTimer = setInterval(() => pollPaymentStatus(qr_uuid), 1500);
+
+    timeoutTimer = setTimeout(() => {
+      // Only timeout the currently active session
+      if (activeQrUuid !== qr_uuid) return;
+      document.getElementById("pay-status").textContent = "Session expired ⏱️";
+      cancelPaymentFlow();
+    }, PAYMENT_TIMEOUT_MS);
+
+    manualSubmitBtn.textContent = "AWAITING PAYMENT…";
+
+  } catch (e) {
+    console.error(e);
+    manualSubmitBtn.textContent = "ERROR";
+    manualSubmitBtn.disabled = false;
   }
 }
 
-// Chip handling
-function bindChipClickHandlers() {
-  // Chips in the overlay only
-  const overlay = $("customizer-overlay");
-  if (!overlay) return;
+function showPayModal(url, qrUuid) {
+  document.getElementById("pay-modal").classList.remove("hidden");
+  document.getElementById("pay-order").textContent = `Order: ${qrUuid}`;
+  QRCode.toCanvas(document.getElementById("pay-qr"), url, { width: 260 });
+}
 
-  overlay.querySelectorAll(".chip").forEach(btn => {
-    // Avoid double-binding
-    if (btn.dataset.bound === "1") return;
-    btn.dataset.bound = "1";
+async function pollPaymentStatus(qrUuid) {
+  // If user canceled / switched sessions, ignore
+  if (activeQrUuid !== qrUuid) return;
 
-    btn.addEventListener("click", () => {
-      // Billable chips (add-ons)
-      if (btn.dataset.billable === "1") {
-        toggleBillable(btn);
+  try {
+    const res = await fetch(`/.netlify/functions/order-status?qr_uuid=${encodeURIComponent(qrUuid)}`);
+    const data = await res.json();
+
+    if (activeQrUuid !== qrUuid) return;
+
+    if (data.status === "paid") {
+      finalizeAfterPaid(qrUuid);
+    }
+  } catch (e) {
+    // ignore poll errors
+  }
+}
+
+function finalizeAfterPaid(qrUuid) {
+  if (activeQrUuid !== qrUuid) return;
+
+  clearPaymentTimers();
+  document.getElementById("pay-status").textContent = "Payment Confirmed ✅";
+
+  setTimeout(() => {
+    document.getElementById("pay-modal").classList.add("hidden");
+    clearOrder();
+    walkInCount++;
+    manualSubmitBtn.textContent = "PLACE ORDER";
+    manualSubmitBtn.disabled = true;
+    returnToLanding();
+    activeQrUuid = null;
+  }, 1200);
+}
+
+function cancelPaymentFlow() {
+  clearPaymentTimers();
+  document.getElementById("pay-modal").classList.add("hidden");
+  document.getElementById("pay-status").textContent = "Waiting for payment…";
+  manualSubmitBtn.textContent = "PLACE ORDER";
+  manualSubmitBtn.disabled = (orderLines.length === 0);
+  activeQrUuid = null;
+}
+
+async function cashierOverride() {
+  if (!activeQrUuid) return;
+
+  document.getElementById("pay-status").textContent = "Sending to cashier…";
+
+  try {
+    const res = await fetch("/.netlify/functions/mark-cashier", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ qr_uuid: activeQrUuid })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || "cashier override failed");
+
+    // End current payment flow
+    clearPaymentTimers();
+    document.getElementById("pay-status").textContent = "Sent as UNPAID ✅";
+
+    setTimeout(() => {
+      document.getElementById("pay-modal").classList.add("hidden");
+      clearOrder();
+      walkInCount++;
+      manualSubmitBtn.textContent = "PLACE ORDER";
+      manualSubmitBtn.disabled = true;
+      returnToLanding();
+      activeQrUuid = null;
+    }, 900);
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById("pay-status").textContent = "Error sending to cashier ❌";
+  }
+}
+
+
+     
+    // CUSTOMIZER
+    let custItem = { name: "", price: 0 };
+
+    function getCategory(nameRaw){
+      const n = (nameRaw || "").toLowerCase();
+      const isComboWithFries = /w\/fries|with fries/.test(n);
+      const isSub = /\bsub\b/.test(n);
+
+      const isBreakfastSandwich =
+        !n.includes("platter") &&
+        (
+          n.includes("croissant") ||
+          n.includes("blt") ||
+          (n.includes("& egg") && n.includes("sandwich") && !isSub) ||  // "Bacon & Egg Sandwich"
+          (n.includes("& egg") && !isSub && !n.includes("cheese sub"))   // "Ham & Egg" (without sub)
+        );
+
+      const isAllDayBreakfast =
+        /pancakes|waffles|french toast|omelette/.test(n) ||
+        /bacon & egg platter|sausage & egg platter|ham & egg platter|scrapple & egg platter|turkey bacon platter|turkey sausage platter|beef bacon platter/.test(n);
+
+      const isWings = n.includes("wings") || n.includes("wing zings");
+      const isWingPlatter = isWings && n.includes("platter") && isComboWithFries;
+
+      const isSeafoodDinner =
+        n.includes("dinner") || n.includes("basket") ||
+        (n.includes("platter") && !isAllDayBreakfast && !isWingPlatter) ||
+        n.includes("whiting") || n.includes("croaker") || n.includes("tilapia") || n.includes("flounder") ||
+        n.includes("shrimp") || n.includes("scallop") || n.includes("seafood") || n.includes("crab") ||
+        n.includes("bulgogi & rice") ||
+        n.includes("chicken tenders") || n.includes("chicken nuggets");  // ✅ Added
+
+      const isSidesDrinks =
+        n.includes("french fries") || n.includes("home fries") || n.includes("grits") || n.includes("seasonal fruit") ||
+        n.includes("soda") || n.includes("coffee") || n.includes("tea/lemonade") || n.includes("juice") ||
+        n.includes("gatorade") || n.includes("monster") || n.includes("water") || n === "extra sauce";
+
+      const isSubsAndSandwiches =
+        !isBreakfastSandwich && !isAllDayBreakfast && !isWings && !isSeafoodDinner && !isSidesDrinks;
+
+      const noExtraMeatLunch =
+        /chicken tenders|chicken nuggets|salmon burger/.test(n);
+
+      return {
+        n,
+        isSub,
+        isComboWithFries,
+        isBreakfastSandwich,
+        isAllDayBreakfast,
+        isWings,
+        isWingPlatter,
+        isSeafoodDinner,
+        isSidesDrinks,
+        isSubsAndSandwiches,
+        noExtraMeatLunch,
+        isCroissant: n.includes("croissant")
+      };
+    }
+
+    function openCustomizer(name, price) {
+      custItem = { name, price: parseFloat(price) || 0 };
+
+      document.getElementById("cust-item-name").textContent = custItem.name;
+      document.getElementById("cust-item-price").textContent = `$${custItem.price.toFixed(2)}`;
+
+      document.querySelectorAll("#customizer-overlay .chip").forEach(b => b.classList.remove("selected"));
+      document.getElementById("cust-notes").value = "";
+
+      const cat = getCategory(name);
+      const isReuben = cat.n.includes("reuben");
+      const isChickenTendersOrNuggets = cat.n.includes("chicken tenders") || cat.n.includes("chicken nuggets");
+      const isWhitingSub = cat.n.includes("whiting sub");
+      
+      // Check if this is a seafood PLATTER (not sub/sandwich)
+      const isSeafoodPlatter = 
+        cat.n.includes("whiting platter") || 
+        cat.n.includes("tilapia platter") || 
+        cat.n.includes("flounder platter") || 
+        cat.n.includes("croaker platter") ||
+        cat.n.includes("shrimp platter") ||
+        cat.n.includes("shrimp basket") ||
+        cat.n.includes("scallop platter") ||
+        cat.n.includes("combo seafood platter") ||
+        cat.n.includes("crab stick");
+
+      // ✅ Show breakfast toppings for breakfast sandwiches
+      toggleSec("sec-breakfast-toppings", cat.isBreakfastSandwich);
+
+      // ✅ Show sub toppings for subs (including Whiting Sub) EXCEPT Reuben, Chicken Tenders/Nuggets
+      toggleSec("sec-sub-toppings", (cat.isSubsAndSandwiches || isWhitingSub) && !isReuben && !isChickenTendersOrNuggets);
+
+      // ✅ Show Reuben note
+      toggleSec("sec-reuben-note", isReuben);
+
+      // ✅ Show seafood platter bread upsell (ONLY for platters, not subs)
+      toggleSec("sec-seafood-bread", isSeafoodPlatter);
+
+      const showMeatChoice = cat.isAllDayBreakfast && needsPlatterMeatChoice(name);
+      toggleSec("sec-meat-choice-platters", showMeatChoice);
+
+      toggleSec("sec-bread", cat.isBreakfastSandwich && !cat.isCroissant);
+      toggleSec("sec-toasted", cat.isBreakfastSandwich);
+      toggleSec("sec-eggs-sandwich", cat.isBreakfastSandwich);
+      toggleSec("sec-bread-upsell", cat.isAllDayBreakfast);
+      toggleSec("sec-extra-meat-breakfast", cat.isBreakfastSandwich || cat.isAllDayBreakfast);
+
+      // ✅ No extra meat for chicken tenders/nuggets or whiting sub
+      toggleSec("sec-extra-meat-lunch", cat.isSubsAndSandwiches && !cat.noExtraMeatLunch && !isChickenTendersOrNuggets && !isWhitingSub);
+
+      const isFrySide = cat.n.includes("french fries") || cat.n.includes("home fries");
+      const showSauces =
+        (cat.isSubsAndSandwiches && cat.isComboWithFries && !isChickenTendersOrNuggets) ||
+        (isWhitingSub && cat.isComboWithFries) ||  // ✅ Whiting sub w/fries shows sauces
+        cat.isWingPlatter ||
+        (cat.isWings && !cat.isSidesDrinks) ||
+        (cat.isSeafoodDinner && !isChickenTendersOrNuggets) ||  // ✅ All seafood platters show sauces
+        isSeafoodPlatter ||  // ✅ Explicitly show sauces for seafood platters
+        isFrySide ||
+        cat.isAllDayBreakfast;
+
+      toggleSec("sec-sauces", showSauces);
+
+      document.getElementById("customizer-overlay").classList.remove("hidden");
+    }
+
+    function needsPlatterMeatChoice(nameRaw) {
+      const n = (nameRaw || "").toLowerCase();
+      return (
+        n.includes("pancakes breakfast") ||
+        n.includes("waffles breakfast") ||
+        n === "french toast" ||
+        n.includes("western omelette")
+      );
+    }
+
+    function closeCustomizer() {
+      document.getElementById("customizer-overlay").classList.add("hidden");
+    }
+
+    function toggleSec(id, show) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle("hidden", !show);
+    }
+
+    // Standard Toppings button functions
+   function selectStandardSub() {
+  const standardToppings = ['Lettuce', 'Tomato', 'Mayonnaise', 'Mustard'];
+  const toppings = document.querySelectorAll('[data-group="toppingMulti"]');
+  toppings.forEach(btn => {
+    const val = btn.getAttribute('data-val');
+    if (standardToppings.includes(val)) {
+      btn.classList.add("selected");
+    }
+  });
+}
+    // Standard Toppings button for breakfast sandwiches
+   function selectStandardBreakfast() {
+  const standardToppings = ['Lettuce', 'Tomato', 'Mayonnaise', 'Mustard'];
+  const toppings = document.querySelectorAll('[data-group="bfToppingMulti"]');
+  toppings.forEach(btn => {
+    const val = btn.getAttribute('data-val');
+    if (standardToppings.includes(val)) {
+      btn.classList.add("selected");
+    }
+  });
+}
+
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".chip");
+      if (!btn) return;
+
+      const overlay = document.getElementById("customizer-overlay");
+      if (overlay.classList.contains("hidden")) return;
+
+      const group = btn.getAttribute("data-group");
+      const isMulti = btn.getAttribute("data-multi") === "1";
+      const billable = btn.getAttribute("data-billable") === "1";
+
+      if (group === "meatChoice") {
+        document.querySelectorAll(`.chip[data-group="meatChoice"]`).forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
         return;
       }
 
-      // Multi-select chips
-      if (btn.dataset.multi === "1") {
-        toggleMulti(btn);
+      if (billable && !group) {
+        btn.classList.toggle("selected");
         return;
       }
 
-      // Single-select group chips
-      const group = btn.dataset.group;
-      const val = btn.dataset.val;
-      if (group && val) {
-        selectSingle(group, val, btn);
+      if (!group) return;
+
+      if (!isMulti) {
+        document.querySelectorAll(`.chip[data-group="${group}"]`).forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+      } else {
+        btn.classList.toggle("selected");
       }
     });
-  });
-}
 
-function selectSingle(group, val, btnEl) {
-  custSelections[group] = val;
+    function addCustomizedItem() {
+      const meatSec = document.getElementById("sec-meat-choice-platters");
+      const meatRequired = meatSec && !meatSec.classList.contains("hidden");
 
-  // clear selected class from same group
-  const overlay = $("customizer-overlay");
-  overlay.querySelectorAll(`.chip[data-group="${group}"]`).forEach(b => b.classList.remove("selected"));
-  btnEl.classList.add("selected");
-}
-
-function toggleMulti(btnEl) {
-  const group = btnEl.dataset.group;
-  const val = btnEl.dataset.val;
-  if (!group || !val) return;
-
-  if (!custMulti[group]) custMulti[group] = new Set();
-
-  if (custMulti[group].has(val)) {
-    custMulti[group].delete(val);
-    btnEl.classList.remove("selected");
-  } else {
-    custMulti[group].add(val);
-    btnEl.classList.add("selected");
-  }
-}
-
-function toggleBillable(btnEl) {
-  const line = btnEl.dataset.line || btnEl.textContent.trim();
-  const price = Number(btnEl.dataset.price || 0);
-
-  const idx = custBillables.findIndex(x => x.line === line);
-  if (idx >= 0) {
-    custBillables.splice(idx, 1);
-    btnEl.classList.remove("selected");
-  } else {
-    custBillables.push({ line, price });
-    btnEl.classList.add("selected");
-  }
-}
-
-function resetAllChips() {
-  const overlay = $("customizer-overlay");
-  if (!overlay) return;
-  overlay.querySelectorAll(".chip").forEach(b => {
-    b.classList.remove("selected");
-    // keep highlight style; highlight is separate class
-  });
-}
-
-// Quick presets
-function selectStandardSub() {
-  // Typical deli defaults
-  const standard = ["Lettuce", "Tomato", "Onion", "Mayonnaise"];
-  const overlay = $("customizer-o
-
-
-function openCustomizer(itemName, price) {
-  // TEMP: until your full customizer overlay is restored
-  addToOrder(itemName, price);
-}
-
-function addToOrder(itemName, price) {
-  orderLines.push({
-    name: itemName,
-    price: Number(price) || 0,
-    qty: 1,
-    notes: ""
-  });
-  currentTotal = orderLines.reduce((sum, l) => sum + (l.price * (l.qty || 1)), 0);
-  renderOrderList();
-}
-
-function renderOrderList() {
-  const list = document.getElementById("order-list");
-  const empty = document.getElementById("empty-state");
-  const totalEl = document.getElementById("total-display");
-  const submitBtn = document.getElementById("manual-submit-btn");
-
-  if (!list || !totalEl || !submitBtn) return;
-
-  list.innerHTML = "";
-
-  orderLines.forEach((line, idx) => {
-    const li = document.createElement("li");
-    li.className = "bg-white border border-gray-200 rounded-2xl p-4 shadow-sm";
-
-    const mods = Array.isArray(line.modifiers) && line.modifiers.length
-      ? `<div class="mt-2 text-xs text-gray-600 space-y-1">
-           ${line.modifiers.map(m => `<div>• ${escapeHtml(m)}</div>`).join("")}
-         </div>`
-      : "";
-
-    li.innerHTML = `
-      <div class="flex justify-between items-start gap-3">
-        <div class="font-extrabold text-gray-900">${escapeHtml(line.name)}</div>
-        <div class="font-black">$${((line.price || 0) * (line.qty || 1)).toFixed(2)}</div>
-      </div>
-      ${mods}
-      <div class="mt-3 flex justify-between items-center">
-        <button class="px-3 py-2 rounded-xl bg-gray-100 font-black" onclick="changeQty(${idx}, -1)">−</button>
-        <div class="font-black text-lg">${line.qty || 1}</div>
-        <button class="px-3 py-2 rounded-xl bg-gray-100 font-black" onclick="changeQty(${idx}, 1)">+</button>
-      </div>
-      <button class="mt-3 w-full py-2 rounded-xl bg-red-50 text-red-700 font-black"
-              onclick="removeLine(${idx})">Remove</button>
-    `;
-
-    list.appendChild(li);
-  });
-
-  if (empty) empty.classList.toggle("hidden", orderLines.length > 0);
-
-  totalEl.textContent = `$${currentTotal.toFixed(2)}`;
-  submitBtn.disabled = orderLines.length === 0;
-}
-
-// Prevent HTML injection in notes/modifiers
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function removeLine(idx){
-  orderLines.splice(idx, 1);
-  recalcTotal();
-  renderOrderList();
-}
-
-
-function changeQty(idx, delta) {
-  const line = orderLines[idx];
-  if (!line) return;
-  line.qty = Math.max(1, (line.qty || 1) + delta);
-  recalcTotal();
-  renderOrderList();
-}
-
-
-function clearOrder() {
-  orderLines = [];
-  recalcTotal();
-  renderOrderList();
-}
-
-
-function activateMenuMode() {
-  // show the app
-  document.getElementById("landing-page")?.classList.add("hidden");
-  document.getElementById("split-screen")?.classList.remove("hidden");
-
-  // show menu, hide transcript
-  document.getElementById("menu-view")?.classList.remove("hidden");
-  document.getElementById("transcript-view")?.classList.add("hidden");
-
-  // optional: update title + hide mini voice controls
-  const title = document.getElementById("left-panel-title");
-  if (title) title.textContent = "Menu";
-
-  document.getElementById("mini-voice-controls")?.classList.add("hidden");
-  document.getElementById("pulse-ring")?.classList.add("hidden");
-}
-
-
-    // ... ALL your existing functions stay the same ...
-
-    // ✅ UPDATED showPayModal with error handling
-    function showPayModal(url, qrUuid) {
-
-      document.getElementById("pay-modal").classList.remove("hidden");
-      document.getElementById("pay-order").textContent = `Order: ${qrUuid}`;
-      
-      const canvas = document.getElementById("pay-qr");
-      
-      // Check if QRCode library loaded
-      if (typeof QRCode === 'undefined') {
-        console.error('QRCode library not loaded!');
-        const ctx = canvas.getContext('2d');
-        ctx.font = 'bold 16px Arial';
-        ctx.fillStyle = '#dc2626';
-        ctx.fillText('QR Error - Reload page', 40, 130);
-        return;
+      if (meatRequired) {
+        const chosen = document.querySelector(`#customizer-overlay .chip.selected[data-group="meatChoice"]`);
+        if (!chosen) {
+          alert("Please choose a meat (Bacon, Sausage, or an upgrade).");
+          return;
+        }
       }
-      
-      // Generate QR code
-      try {
-        QRCode.toCanvas(canvas, url, { 
-          width: 260,
-          margin: 2,
-          color: {
-            dark: '#000000',
-            light: '#FFFFFF'
-          }
-        }, (error) => {
-          if (error) {
-            console.error('QR generation error:', error);
-          }
-        });
-      } catch (error) {
-        console.error('QR generation failed:', error);
-      }
+
+      const modifiers = [];
+
+      document.querySelectorAll("#customizer-overlay .chip.selected[data-billable='1']").forEach(b => {
+        const line = (b.getAttribute("data-line") || "").trim();
+        const price = parseFloat(b.getAttribute("data-price") || "0");
+        if (line && price > 0) addItemToReceipt(line, price, [], 1);
+      });
+
+      document.querySelectorAll("#customizer-overlay .chip.selected:not([data-billable='1'])").forEach(b => {
+        const val = (b.getAttribute("data-val") || "").trim();
+        if (val) modifiers.push(val);
+      });
+
+      const note = document.getElementById("cust-notes").value.trim();
+      if (note) modifiers.push(`Note: ${note}`);
+
+      addItemToReceipt(custItem.name, custItem.price, modifiers, 1);
+
+      closeCustomizer();
+      if (navigator.vibrate) navigator.vibrate(50);
     }
 
-    // ... rest of your JavaScript functions ...
-document.addEventListener("DOMContentLoaded", () => {
-  const btn = document.getElementById("open-menu-btn");
-  console.log("open-menu-btn found?", !!btn);
-  if (btn) btn.addEventListener("click", () => {
-    console.log("OPEN MENU clicked");
-    activateMenuMode();
-  });
-});
+    // DEBUG
+    openDebugBtn.addEventListener('click', () => {
+      const pw = prompt("Admin Password:");
+      if (pw === "1003") debugPanel.classList.remove('hidden');
+    });
+    debugCloseBtn.addEventListener('click', () => debugPanel.classList.add('hidden'));
 
+    // INIT VAPI
+    (function (d, t) {
+      const g = d.createElement(t), s = d.getElementsByTagName(t)[0];
+      g.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js";
+      g.defer = true; g.async = true; s.parentNode.insertBefore(g, s);
+      g.onload = function () {
+        vapi = window.vapiSDK.run({ apiKey: VAPI_PUBLIC_KEY, assistant: VAPI_ASSISTANT_ID });
+        setupVapiEvents();
+      };
+    })(document, "script");
   </script>
+<div id="pay-modal" class="hidden fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-6">
+  <div class="bg-white rounded-3xl p-6 w-full max-w-md text-center">
+    <div class="text-2xl font-black">Scan to Pay</div>
+    <div class="text-sm text-gray-500 font-semibold mt-1">Apple Pay • Google Pay • Card</div>
+    
+    <canvas id="pay-qr" class="mx-auto mt-6"></canvas>
+    
+    <div id="pay-status" class="mt-5 text-lg font-black">Waiting for payment…</div>
+    <div id="pay-order" class="mt-2 text-xs text-gray-400 font-mono"></div>
+    
+<button onclick="cashierOverride()" class="mt-4 w-full py-4 rounded-2xl font-black bg-yellow-400">
+  Pay at Cashier
+</button>
+
+<button onclick="cancelPaymentFlow()" class="mt-3 w-full py-4 rounded-2xl font-black bg-gray-100">
+  Cancel
+</button>
+
+  </div>
+</div>
 </body>
 </html>
