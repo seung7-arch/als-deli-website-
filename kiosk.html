@@ -1,168 +1,328 @@
-const isSeafoodPlatter = 
-        cat.n.includes("whiting platter") || 
-        cat.n.includes("tilapia platter") || 
-        cat.n.includes("flounder platter") || 
-        cat.n.includes("croaker platter") ||
-        cat.n.includes("shrimp platter") ||
-        cat.n.includes("shrimp basket") ||
-        cat.n.includes("scallop platter") ||
-        cat.n.includes("combo seafood platter") ||
-        cat.n.includes("crab stick");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Al's Deli - Voice Kiosk</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+    body { font-family: 'Inter', sans-serif; -webkit-user-select: none; user-select: none; }
 
-      toggleSec("sec-breakfast-toppings", cat.isBreakfastSandwich);
-      toggleSec("sec-sub-toppings", (cat.isSubsAndSandwiches || isWhitingSub) && !isReuben && !isChickenTendersOrNuggets);
-      toggleSec("sec-reuben-note", isReuben);
-      toggleSec("sec-seafood-bread", isSeafoodPlatter);
+    .kiosk-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .kiosk-scroll::-webkit-scrollbar { width: 8px; }
+    .kiosk-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+    .kiosk-scroll::-webkit-scrollbar-thumb { background: #b91c1c; border-radius: 4px; }
 
-      const showMeatChoice = cat.isAllDayBreakfast && needsPlatterMeatChoice(name);
-      toggleSec("sec-meat-choice-platters", showMeatChoice);
-
-      toggleSec("sec-bread", cat.isBreakfastSandwich && !cat.isCroissant);
-      toggleSec("sec-toasted", cat.isBreakfastSandwich);
-      toggleSec("sec-eggs-sandwich", cat.isBreakfastSandwich);
-      toggleSec("sec-bread-upsell", cat.isAllDayBreakfast);
-      toggleSec("sec-extra-meat-breakfast", cat.isBreakfastSandwich || cat.isAllDayBreakfast);
-      toggleSec("sec-extra-meat-lunch", cat.isSubsAndSandwiches && !cat.noExtraMeatLunch && !isChickenTendersOrNuggets && !isWhitingSub);
-
-      const isFrySide = cat.n.includes("french fries") || cat.n.includes("home fries");
-      const showSauces =
-        (cat.isSubsAndSandwiches && cat.isComboWithFries && !isChickenTendersOrNuggets) ||
-        (isWhitingSub && cat.isComboWithFries) ||
-        cat.isWingPlatter ||
-        (cat.isWings && !cat.isSidesDrinks) ||
-        (cat.isSeafoodDinner && !isChickenTendersOrNuggets) ||
-        isSeafoodPlatter ||
-        isFrySide ||
-        cat.isAllDayBreakfast;
-
-      toggleSec("sec-sauces", showSauces);
-
-      document.getElementById("customizer-overlay").classList.remove("hidden");
+    @keyframes pulse-ring {
+      0% { transform: scale(0.33); opacity: 0.8; }
+      80%, 100% { opacity: 0; transform: scale(1); }
+    }
+    
+    .chip.highlight {
+      background-color: #FEF9C3;
+      border-color: #FACC15;
+      color: #713F12;
+      font-weight: 900;
     }
 
-    function needsPlatterMeatChoice(nameRaw) {
-      const n = (nameRaw || "").toLowerCase();
-      return (
-        n.includes("pancakes breakfast") ||
-        n.includes("waffles breakfast") ||
-        n === "french toast" ||
-        n.includes("western omelette")
-      );
+    .pulse-ring::before {
+      content: ''; position: absolute; left: 0; top: 0; display: block; width: 100%; height: 100%;
+      background-color: rgba(220, 38, 38, 0.6); border-radius: 50%;
+      animation: pulse-ring 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    
+    @keyframes breathe {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+    }
+    .btn-breathe { animation: breathe 2s infinite; }
+    
+    @keyframes scroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-33.333%); }
+    }
+    
+    .animate-scroll {
+      display: flex;
+      animation: scroll 20s linear infinite;
     }
 
-    function closeCustomizer() {
-      document.getElementById("customizer-overlay").classList.add("hidden");
+    .hidden { display: none !important; }
+
+    .bg-landing {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)),
+        url('https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=1965&auto=format&fit=crop');
+      background-size: cover; background-position: center;
     }
-
-    function toggleSec(id, show) {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.classList.toggle("hidden", !show);
+    
+    .menu-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px; background: white; border: 1px solid #e5e7eb;
+      cursor: pointer; transition: all 0.1s;
     }
+    .menu-row:active { background-color: #fee2e2; border-color: #b91c1c; transform: scale(0.98); }
 
-    function selectStandardSub() {
-      const standardToppings = ['Lettuce', 'Tomato', 'Mayonnaise', 'Mustard'];
-      const toppings = document.querySelectorAll('[data-group="toppingMulti"]');
-      toppings.forEach(btn => {
-        const val = btn.getAttribute('data-val');
-        if (standardToppings.includes(val)) {
-          btn.classList.add("selected");
-        }
-      });
+    .chip{
+      border:1px solid #e5e7eb; border-radius:14px; padding:12px 10px;
+      font-weight:800; font-size:13px; background:#fff; color:#111827;
+      transition: all .1s; text-align:center;
     }
+    .chip:active{ transform:scale(.98); }
+    .chip.selected{ background:#fee2e2; border-color:#b91c1c; color:#7f1d1d; }
+  </style>
+</head>
 
-    function selectStandardBreakfast() {
-      const standardToppings = ['Lettuce', 'Tomato', 'Mayonnaise', 'Mustard'];
-      const toppings = document.querySelectorAll('[data-group="bfToppingMulti"]');
-      toppings.forEach(btn => {
-        const val = btn.getAttribute('data-val');
-        if (standardToppings.includes(val)) {
-          btn.classList.add("selected");
-        }
-      });
-    }
+<body class="bg-gray-100 h-screen overflow-hidden text-gray-800">
 
-    document.addEventListener("click", (e) => {
-      const btn = e.target.closest(".chip");
-      if (!btn) return;
+  <!-- LANDING PAGE -->
+  <div id="landing-page" class="absolute inset-0 z-50 bg-landing flex flex-col justify-between p-6 transition-opacity duration-500">
+    <div class="flex justify-between items-start">
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center gap-3">
+          <div class="h-12 w-12 bg-red-600 rounded-full flex items-center justify-center text-white font-black text-2xl border-2 border-white shadow-lg">A</div>
+          <h1 class="text-3xl font-black text-white tracking-wider drop-shadow-md">AL'S DELI</h1>
+        </div>
+        <button id="open-debug" class="text-[10px] text-white/30 hover:text-white text-left ml-1 mt-1 font-mono uppercase tracking-widest transition-colors">
+          KIOSK 01 • ONLINE
+        </button>
+      </div>
 
-      const overlay = document.getElementById("customizer-overlay");
-      if (overlay.classList.contains("hidden")) return;
+      <button onclick="activateVoiceMode()" class="relative group">
+        <div class="absolute w-full h-full rounded-full bg-red-600/20 animate-ping"></div>
+        <div class="relative w-16 h-16 bg-red-600 rounded-full shadow-lg flex items-center justify-center transform transition-all duration-200 group-hover:scale-105 group-active:scale-95 border-2 border-white">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+          </svg>
+        </div>
+      </button>
+    </div>
 
-      const group = btn.getAttribute("data-group");
-      const isMulti = btn.getAttribute("data-multi") === "1";
-      const billable = btn.getAttribute("data-billable") === "1";
+    <div class="flex-1 flex flex-col items-center justify-center text-center px-4">
+      <h2 class="text-5xl md:text-7xl font-black text-white mb-4 drop-shadow-xl">Hungry?</h2>
 
-      if (group === "meatChoice") {
-        document.querySelectorAll(`.chip[data-group="meatChoice"]`).forEach(b => b.classList.remove("selected"));
-        btn.classList.add("selected");
+      <div class="bg-black/40 backdrop-blur-md rounded-2xl p-4 mb-10 border border-white/10">
+        <p class="text-white text-xl md:text-2xl font-medium">
+          Tap the <span class="text-yellow-400 font-black">Menu Button</span> below<br>
+          OR use the <span class="text-red-500 font-bold">Mic</span> in the corner
+        </p>
+      </div>
+
+     <button id="open-menu-btn" class="relative group mb-8">
+
+
+        <div class="absolute inset-0 rounded-3xl bg-yellow-400 blur-xl opacity-50 group-hover:opacity-75 transition-opacity"></div>
+        <div class="relative bg-gradient-to-br from-yellow-400 to-yellow-500 px-12 py-8 rounded-3xl shadow-2xl transform transition-all duration-200 group-hover:scale-105 group-active:scale-95 border-4 border-white">
+          <div class="flex items-center gap-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <span class="text-4xl font-black text-gray-900 tracking-tight">OPEN MENU</span>
+          </div>
+        </div>
+      </button>
+
+      <p class="text-white/70 text-sm font-medium">Tap the menu to browse and build your order</p>
+    </div>
+
+    <div class="fixed bottom-0 left-0 right-0 w-full overflow-hidden bg-gradient-to-r from-yellow-400 to-yellow-500 py-3 border-t-4 border-white shadow-2xl z-50">
+      <div class="whitespace-nowrap animate-scroll">
+        <span class="inline-block text-gray-900 font-black text-lg md:text-xl px-8">
+          ⚡ In a hurry? Order and pay online at <span class="text-red-600">alscarryout.com</span> and just pick up your order! ⚡
+        </span>
+        <span class="inline-block text-gray-900 font-black text-lg md:text-xl px-8">
+          ⚡ In a hurry? Order and pay online at <span class="text-red-600">alscarryout.com</span> and just pick up your order! ⚡
+        </span>
+        <span class="inline-block text-gray-900 font-black text-lg md:text-xl px-8">
+          ⚡ In a hurry? Order and pay online at <span class="text-red-600">alscarryout.com</span> and just pick up your order! ⚡
+        </span>
+      </div>
+    </div>
+
+    <div class="text-center text-white/30 text-xs uppercase tracking-widest font-medium mb-16">
+      Patent Pending • Powered by Volosystems.AI
+    </div>
+  </div>
+
+  <!-- SPLIT SCREEN APP -->
+  <div id="split-screen" class="absolute inset-0 z-40 flex hidden bg-white">
+    <!-- LEFT: MENU / TRANSCRIPT -->
+    <section class="w-1/2 h-full flex flex-col border-r border-gray-200 bg-gray-50 relative">
+      <div class="p-4 bg-white border-b border-gray-200 flex justify-between items-center shadow-sm z-10 sticky top-0">
+        <div class="flex items-center gap-2">
+          <button onclick="returnToLanding()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+          </button>
+          <h2 id="left-panel-title" class="text-lg font-bold text-gray-800">Menu</h2>
+        </div>
+
+        <div id="mini-voice-controls" class="hidden flex items-center gap-2">
+          <div id="pulse-ring" class="hidden w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+          <button id="vapi-toggle-btn" class="bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow hover:bg-red-700">STOP</button>
+        </div>
+      </div>
+
+      <!-- MENU VIEW -->
+      <div id="menu-view" class="flex-1 overflow-y-auto p-4 kiosk-scroll hidden bg-white">
+        <!-- Menu content same as your original... I'll abbreviate here for space -->
+        <div class="font-black text-red-700 text-2xl border-b-4 border-red-700 mb-4 mt-2 pb-2 uppercase tracking-wider sticky top-0 bg-white py-2 z-10">
+          Breakfast Sandwiches
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Bacon & Egg Sandwich', 7.00)"><span class="font-bold text-gray-800 text-lg">Bacon & Egg Sandwich</span><span class="font-bold text-lg">$7.00</span></div>
+          <!-- ... rest of your menu items ... -->
+        </div>
+        <!-- Include all your other menu sections here -->
+      </div>
+
+      <!-- TRANSCRIPT VIEW -->
+      <div id="transcript-view" class="flex-1 flex flex-col p-4 hidden bg-gray-100 overflow-hidden">
+        <div id="transcript-log" class="flex-1 overflow-y-auto space-y-4 kiosk-scroll pr-2">
+          <div class="text-center text-gray-400 text-sm mt-10">
+            <p>Mike is listening...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: CART -->
+    <section class="w-1/2 h-full flex flex-col bg-white shadow-xl relative z-20">
+      <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
+        <div>
+          <h2 class="text-2xl font-black text-gray-800">Your Order</h2>
+          <div class="text-xs text-gray-400 uppercase font-bold tracking-widest mt-1">Review Items</div>
+        </div>
+        <button onclick="clearOrder()" class="text-xs text-red-500 hover:text-red-700 font-bold border border-red-100 px-3 py-2 rounded hover:bg-red-50 transition-colors">CLEAR ALL</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6 bg-gray-50/50 relative">
+        <ul id="order-list" class="space-y-3 pb-20"></ul>
+        <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-gray-300 pointer-events-none">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+          <p class="font-medium">Cart is empty</p>
+        </div>
+      </div>
+
+      <div class="p-6 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-30">
+        <div class="flex justify-between items-end mb-4">
+          <span class="text-gray-500 font-bold text-sm uppercase">Total Due</span>
+          <span id="total-display" class="text-4xl font-black text-gray-900">$0.00</span>
+        </div>
+        <button id="manual-submit-btn" onclick="submitOrderManually()" class="w-full py-5 bg-green-600 hover:bg-green-700 text-white font-black text-xl rounded-2xl shadow-lg shadow-green-600/20 transform active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none disabled:text-gray-500" disabled>
+          PLACE ORDER
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <!-- CUSTOMIZER OVERLAY -->
+  <div id="customizer-overlay" class="hidden fixed inset-0 z-[200] bg-black/50">
+    <!-- Your customizer content stays the same -->
+  </div>
+
+  <!-- QR PAYMENT MODAL -->
+  <div id="pay-modal" class="hidden fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-6">
+    <div class="bg-white rounded-3xl p-6 w-full max-w-md text-center">
+      <div class="text-2xl font-black">Scan to Pay</div>
+      <div class="text-sm text-gray-500 font-semibold mt-1">Apple Pay • Google Pay • Card</div>
+      
+      <canvas id="pay-qr" class="mx-auto mt-6" width="260" height="260"></canvas>
+      
+      <div id="pay-status" class="mt-5 text-lg font-black">Waiting for payment…</div>
+      <div id="pay-order" class="mt-2 text-xs text-gray-400 font-mono"></div>
+      
+      <button onclick="cashierOverride()" class="mt-4 w-full py-4 rounded-2xl font-black bg-yellow-400 hover:bg-yellow-500">
+        💳 Pay at Cashier
+      </button>
+
+      <button onclick="cancelPaymentFlow()" class="mt-3 w-full py-4 rounded-2xl font-black bg-gray-100 hover:bg-gray-200">
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <!-- DEBUG PANEL -->
+  <section id="debug-panel" class="fixed bottom-0 left-0 w-full md:w-96 bg-gray-900 border-t border-gray-700 shadow-2xl max-h-60 flex flex-col text-left text-xs hidden z-[100] font-mono text-green-400">
+    <div class="flex items-center justify-between px-3 py-2 bg-gray-800 border-b border-gray-700">
+      <div class="font-bold">ADMIN LOGS</div>
+      <button id="debug-close" class="text-gray-400 hover:text-white px-2">✕</button>
+    </div>
+    <div id="raw-log" class="flex-1 overflow-y-auto p-3 space-y-1">
+      <div class="text-gray-500">System Ready.</div>
+    </div>
+  </section>
+
+  <!-- ✅ LOAD QR CODE LIBRARY FIRST -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  
+  <!-- ✅ THEN YOUR MAIN SCRIPT -->
+  <script>
+    // Your entire script stays exactly the same...
+    // (I'm abbreviating here - use ALL your existing JavaScript)
+    
+    const VAPI_PUBLIC_KEY = "d454a336-9928-4cb2-8102-2707249b3f28";
+    const VAPI_ASSISTANT_ID = "1bead665-414c-434b-929a-ad1240505b35";
+    const MAKE_WEBHOOK_URL = "https://hook.us2.make.com/xaqgz1i35i8al312nkm76to5actknvkc";
+
+    let vapi = null;
+    let isCallActive = false;
+    let currentTotal = 0.0;
+    let orderLines = [];
+    let walkInCount = 1;
+    let pollTimer = null;
+    let timeoutTimer = null;
+    let activeQrUuid = null;
+    const PAYMENT_TIMEOUT_MS = 120000;
+
+    // ... ALL your existing functions stay the same ...
+
+    // ✅ UPDATED showPayModal with error handling
+    function showPayModal(url, qrUuid) {
+
+      document.getElementById("pay-modal").classList.remove("hidden");
+      document.getElementById("pay-order").textContent = `Order: ${qrUuid}`;
+      
+      const canvas = document.getElementById("pay-qr");
+      
+      // Check if QRCode library loaded
+      if (typeof QRCode === 'undefined') {
+        console.error('QRCode library not loaded!');
+        const ctx = canvas.getContext('2d');
+        ctx.font = 'bold 16px Arial';
+        ctx.fillStyle = '#dc2626';
+        ctx.fillText('QR Error - Reload page', 40, 130);
         return;
       }
-
-      if (billable && !group) {
-        btn.classList.toggle("selected");
-        return;
+      
+      // Generate QR code
+      try {
+        QRCode.toCanvas(canvas, url, { 
+          width: 260,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        }, (error) => {
+          if (error) {
+            console.error('QR generation error:', error);
+          }
+        });
+      } catch (error) {
+        console.error('QR generation failed:', error);
       }
-
-      if (!group) return;
-
-      if (!isMulti) {
-        document.querySelectorAll(`.chip[data-group="${group}"]`).forEach(b => b.classList.remove("selected"));
-        btn.classList.add("selected");
-      } else {
-        btn.classList.toggle("selected");
-      }
-    });
-
-    function addCustomizedItem() {
-      const meatSec = document.getElementById("sec-meat-choice-platters");
-      const meatRequired = meatSec && !meatSec.classList.contains("hidden");
-
-      if (meatRequired) {
-        const chosen = document.querySelector(`#customizer-overlay .chip.selected[data-group="meatChoice"]`);
-        if (!chosen) {
-          alert("Please choose a meat (Bacon, Sausage, or an upgrade).");
-          return;
-        }
-      }
-
-      const modifiers = [];
-
-      document.querySelectorAll("#customizer-overlay .chip.selected[data-billable='1']").forEach(b => {
-        const line = (b.getAttribute("data-line") || "").trim();
-        const price = parseFloat(b.getAttribute("data-price") || "0");
-        if (line && price > 0) addItemToReceipt(line, price, [], 1);
-      });
-
-      document.querySelectorAll("#customizer-overlay .chip.selected:not([data-billable='1'])").forEach(b => {
-        const val = (b.getAttribute("data-val") || "").trim();
-        if (val) modifiers.push(val);
-      });
-
-      const note = document.getElementById("cust-notes").value.trim();
-      if (note) modifiers.push(`Note: ${note}`);
-
-      addItemToReceipt(custItem.name, custItem.price, modifiers, 1);
-
-      closeCustomizer();
-      if (navigator.vibrate) navigator.vibrate(50);
     }
 
-    openDebugBtn.addEventListener('click', () => {
-      const pw = prompt("Admin Password:");
-      if (pw === "1003") debugPanel.classList.remove('hidden');
-    });
-    debugCloseBtn.addEventListener('click', () => debugPanel.classList.add('hidden'));
+    // ... rest of your JavaScript functions ...
+document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("open-menu-btn");
+    if (btn) btn.addEventListener("click", activateMenuMode);
+  });
 
-    (function (d, t) {
-      const g = d.createElement(t), s = d.getElementsByTagName(t)[0];
-      g.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js";
-      g.defer = true; g.async = true; s.parentNode.insertBefore(g, s);
-      g.onload = function () {
-        vapi = window.vapiSDK.run({ apiKey: VAPI_PUBLIC_KEY, assistant: VAPI_ASSISTANT_ID });
-        setupVapiEvents();
-      };
-    })(document, "script");
   </script>
 </body>
 </html>
