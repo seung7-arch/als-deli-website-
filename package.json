@@ -2,7 +2,8 @@
   "name": "als-deli-website",
   "version": "1.0.0",
   "dependencies": {
-    "stripe": "^14.11.0",
-    "@supabase/supabase-js": "^2.39.0"
+    "@supabase/gotrue-js": "^2.90.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "stripe": "^14.11.0"
   }
 }
