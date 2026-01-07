@@ -1009,20 +1009,28 @@ async function pollPaymentStatus(qrUuid) {
     const data = await res.json();
 
     if (activeQrUuid !== qrUuid) return;
+const s = String(data.status || "").toLowerCase();
+if (s === "paid") finalizeAfterPaid(qrUuid);
 
-    if (data.status === "paid") {
-      finalizeAfterPaid(qrUuid);
-    }
-  } catch (e) {
+      } catch (e) {
     // ignore poll errors
   }
 }
 
-function finalizeAfterPaid(qrUuid) {
+async function finalizeAfterPaid(qrUuid) {
   if (activeQrUuid !== qrUuid) return;
-
   clearPaymentTimers();
-  document.getElementById("pay-status").textContent = "Payment Confirmed ✅";
+
+  // fetch once for order number (optional but nice)
+  let orderNo = null;
+  try {
+    const res = await fetch(`/.netlify/functions/order-status?qr_uuid=${encodeURIComponent(qrUuid)}`);
+    const data = await res.json();
+    orderNo = data.order_number || null;
+  } catch {}
+
+  document.getElementById("pay-status").textContent =
+    orderNo ? `Payment Confirmed ✅  Order #${orderNo}` : "Payment Confirmed ✅";
 
   setTimeout(() => {
     document.getElementById("pay-modal").classList.add("hidden");
@@ -1032,8 +1040,9 @@ function finalizeAfterPaid(qrUuid) {
     manualSubmitBtn.disabled = true;
     returnToLanding();
     activeQrUuid = null;
-  }, 1200);
+  }, 1400);
 }
+
 
 function cancelPaymentFlow() {
   clearPaymentTimers();
