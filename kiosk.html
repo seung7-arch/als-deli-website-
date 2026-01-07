@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Al's Deli - Voice Kiosk</title>
   <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
@@ -985,8 +986,19 @@ async function submitOrderManually() {
 function showPayModal(url, qrUuid) {
   document.getElementById("pay-modal").classList.remove("hidden");
   document.getElementById("pay-order").textContent = `Order: ${qrUuid}`;
-  QRCode.toCanvas(document.getElementById("pay-qr"), url, { width: 260 });
+
+  const qrWrap = document.getElementById("pay-qr");
+  qrWrap.innerHTML = ""; // clear previous QR
+
+  // qrcodejs: global constructor "QRCode"
+  new QRCode(qrWrap, {
+    text: url,
+    width: 260,
+    height: 260,
+    correctLevel: QRCode.CorrectLevel.M
+  });
 }
+
 
 async function pollPaymentStatus(qrUuid) {
   // If user canceled / switched sessions, ignore
@@ -1326,7 +1338,8 @@ async function cashierOverride() {
     <div class="text-2xl font-black">Scan to Pay</div>
     <div class="text-sm text-gray-500 font-semibold mt-1">Apple Pay • Google Pay • Card</div>
     
-    <canvas id="pay-qr" class="mx-auto mt-6"></canvas>
+    <div id="pay-qr" class="mx-auto mt-6"></div>
+
     
     <div id="pay-status" class="mt-5 text-lg font-black">Waiting for payment…</div>
     <div id="pay-order" class="mt-2 text-xs text-gray-400 font-mono"></div>
