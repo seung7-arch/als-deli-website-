@@ -278,6 +278,24 @@
     let activeQrUuid = null;
     const PAYMENT_TIMEOUT_MS = 120000;
 
+function activateMenuMode() {
+  // show the app
+  document.getElementById("landing-page")?.classList.add("hidden");
+  document.getElementById("split-screen")?.classList.remove("hidden");
+
+  // show menu, hide transcript
+  document.getElementById("menu-view")?.classList.remove("hidden");
+  document.getElementById("transcript-view")?.classList.add("hidden");
+
+  // optional: update title + hide mini voice controls
+  const title = document.getElementById("left-panel-title");
+  if (title) title.textContent = "Menu";
+
+  document.getElementById("mini-voice-controls")?.classList.add("hidden");
+  document.getElementById("pulse-ring")?.classList.add("hidden");
+}
+
+
     // ... ALL your existing functions stay the same ...
 
     // ✅ UPDATED showPayModal with error handling
@@ -319,9 +337,13 @@
 
     // ... rest of your JavaScript functions ...
 document.addEventListener("DOMContentLoaded", () => {
-    const btn = document.getElementById("open-menu-btn");
-    if (btn) btn.addEventListener("click", activateMenuMode);
+  const btn = document.getElementById("open-menu-btn");
+  console.log("open-menu-btn found?", !!btn);
+  if (btn) btn.addEventListener("click", () => {
+    console.log("OPEN MENU clicked");
+    activateMenuMode();
   });
+});
 
   </script>
 </body>
