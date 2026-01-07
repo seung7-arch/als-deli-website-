@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Al's Deli - Voice Kiosk</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+    body { font-family: 'Inter', sans-serif; -webkit-user-select: none; user-select: none; }
+
+    .kiosk-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .kiosk-scroll::-webkit-scrollbar { width: 8px; }
+    .kiosk-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+    .kiosk-scroll::-webkit-scrollbar-thumb { background: #b91c1c; border-radius: 4px; }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.33); opacity: 0.8; }
+      80%, 100% { opacity: 0; transform: scale(1); }
+    }
+	/* Highlight important modifiers */
+.chip.highlight {
+  background-color: #FEF9C3; /* light yellow */
+  border-color: #FACC15;
+  color: #713F12;
+  font-weight: 900;
+}
+
+    .pulse-ring::before {
+      content: ''; position: absolute; left: 0; top: 0; display: block; width: 100%; height: 100%;
+      background-color: rgba(220, 38, 38, 0.6); border-radius: 50%;
+      animation: pulse-ring 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    @keyframes breathe {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+    }
+    .btn-breathe { animation: breathe 2s infinite; }
+/* Scrolling banner animation */
+    @keyframes scroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-33.333%); }
+    }
+    
+    .animate-scroll {
+      display: flex;
+      animation: scroll 20s linear infinite;
+    }
+
+    .hidden { display: none !important; }
+
+    .bg-landing {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)),
+        url('https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=1965&auto=format&fit=crop');
+      background-size: cover; background-position: center;
+    }
+    .menu-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px; background: white; border: 1px solid #e5e7eb;
+      cursor: pointer; transition: all 0.1s;
+    }
+    .menu-row:active { background-color: #fee2e2; border-color: #b91c1c; transform: scale(0.98); }
+
+    /* Customizer chips */
+    .chip{
+      border:1px solid #e5e7eb; border-radius:14px; padding:12px 10px;
+      font-weight:800; font-size:13px; background:#fff; color:#111827;
+      transition: all .1s; text-align:center;
+    }
+    .chip:active{ transform:scale(.98); }
+    .chip.selected{ background:#fee2e2; border-color:#b91c1c; color:#7f1d1d; }
+  </style>
+</head>
+
+<body class="bg-gray-100 h-screen overflow-hidden text-gray-800">
+
+  <!-- =======================
+       LANDING PAGE (UPDATED LAYOUT)
+  ======================== -->
+  <div id="landing-page" class="absolute inset-0 z-50 bg-landing flex flex-col justify-between p-6 transition-opacity duration-500">
+
+    <div class="flex justify-between items-start">
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center gap-3">
+          <div class="h-12 w-12 bg-red-600 rounded-full flex items-center justify-center text-white font-black text-2xl border-2 border-white shadow-lg">A</div>
+          <h1 class="text-3xl font-black text-white tracking-wider drop-shadow-md">AL'S DELI</h1>
+        </div>
+        <button id="open-debug" class="text-[10px] text-white/30 hover:text-white text-left ml-1 mt-1 font-mono uppercase tracking-widest transition-colors">
+          KIOSK 01 • ONLINE
+        </button>
+      </div>
+
+      <!-- UPDATED: Small mic button in corner -->
+      <button onclick="activateVoiceMode()" class="relative group">
+        <div class="absolute w-full h-full rounded-full bg-red-600/20 animate-ping"></div>
+        <div class="relative w-16 h-16 bg-red-600 rounded-full shadow-lg flex items-center justify-center transform transition-all duration-200 group-hover:scale-105 group-active:scale-95 border-2 border-white">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+          </svg>
+        </div>
+      </button>
+    </div>
+
+    <div class="flex-1 flex flex-col items-center justify-center text-center px-4">
+      <h2 class="text-5xl md:text-7xl font-black text-white mb-4 drop-shadow-xl">Hungry?</h2>
+
+      <div class="bg-black/40 backdrop-blur-md rounded-2xl p-4 mb-10 border border-white/10">
+        <p class="text-white text-xl md:text-2xl font-medium">
+          Tap the <span class="text-yellow-400 font-black">Menu Button</span> below<br>
+          OR use the <span class="text-red-500 font-bold">Mic</span> in the corner
+        </p>
+      </div>
+
+      <!-- UPDATED: BIG MENU BUTTON CENTER -->
+      <button onclick="activateMenuMode()" class="relative group mb-8">
+        <div class="absolute inset-0 rounded-3xl bg-yellow-400 blur-xl opacity-50 group-hover:opacity-75 transition-opacity"></div>
+        <div class="relative bg-gradient-to-br from-yellow-400 to-yellow-500 px-12 py-8 rounded-3xl shadow-2xl transform transition-all duration-200 group-hover:scale-105 group-active:scale-95 border-4 border-white">
+          <div class="flex items-center gap-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <span class="text-4xl font-black text-gray-900 tracking-tight">OPEN MENU</span>
+          </div>
+        </div>
+      </button>
+
+      <p class="text-white/70 text-sm font-medium">Tap the menu to browse and build your order</p>
+    </div>
+
+    <!-- SCROLLING BANNER (Fixed Position at Bottom) -->
+    <div class="fixed bottom-0 left-0 right-0 w-full overflow-hidden bg-gradient-to-r from-yellow-400 to-yellow-500 py-3 border-t-4 border-white shadow-2xl z-50">
+      <div class="whitespace-nowrap animate-scroll">
+        <span class="inline-block text-gray-900 font-black text-lg md:text-xl px-8">
+          ⚡ In a hurry? Order and pay online at <span class="text-red-600">alscarryout.com</span> and just pick up your order! ⚡
+        </span>
+        <span class="inline-block text-gray-900 font-black text-lg md:text-xl px-8">
+          ⚡ In a hurry? Order and pay online at <span class="text-red-600">alscarryout.com</span> and just pick up your order! ⚡
+        </span>
+        <span class="inline-block text-gray-900 font-black text-lg md:text-xl px-8">
+          ⚡ In a hurry? Order and pay online at <span class="text-red-600">alscarryout.com</span> and just pick up your order! ⚡
+        </span>
+      </div>
+    </div>
+
+    <div class="text-center text-white/30 text-xs uppercase tracking-widest font-medium mb-16">
+      Patent Pending • Powered by Volosystems.AI
+    </div>
+  </div>  <!-- =======================
+       SPLIT SCREEN APP
+  ======================== -->
+  <div id="split-screen" class="absolute inset-0 z-40 flex hidden bg-white">
+
+    <!-- LEFT: MENU / TRANSCRIPT -->
+    <section class="w-1/2 h-full flex flex-col border-r border-gray-200 bg-gray-50 relative">
+
+      <div class="p-4 bg-white border-b border-gray-200 flex justify-between items-center shadow-sm z-10 sticky top-0">
+        <div class="flex items-center gap-2">
+          <button onclick="returnToLanding()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+          </button>
+          <h2 id="left-panel-title" class="text-lg font-bold text-gray-800">Menu</h2>
+        </div>
+
+        <div id="mini-voice-controls" class="hidden flex items-center gap-2">
+          <div id="pulse-ring" class="hidden w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+          <button id="vapi-toggle-btn" class="bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow hover:bg-red-700">STOP</button>
+        </div>
+      </div>
+
+      <!-- MENU VIEW -->
+      <div id="menu-view" class="flex-1 overflow-y-auto p-4 kiosk-scroll hidden bg-white">
+
+        <div class="font-black text-red-700 text-2xl border-b-4 border-red-700 mb-4 mt-2 pb-2 uppercase tracking-wider sticky top-0 bg-white py-2 z-10">
+          Breakfast Sandwiches
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Bacon & Egg Sandwich', 7.00)"><span class="font-bold text-gray-800 text-lg">Bacon & Egg Sandwich</span><span class="font-bold text-lg">$7.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Sausage & Egg Sandwich', 7.00)"><span class="font-bold text-gray-800 text-lg">Sausage & Egg Sandwich</span><span class="font-bold text-lg">$7.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Turkey Bacon & Egg Sandwich', 9.00)"><span class="font-bold text-gray-800 text-lg">Turkey Bacon & Egg Sandwich</span><span class="font-bold text-lg">$9.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Turkey Sausage & Egg Sandwich', 9.00)"><span class="font-bold text-gray-800 text-lg">Turkey Sausage & Egg Sandwich</span><span class="font-bold text-lg">$9.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Scrapple & Egg Sandwich', 9.00)"><span class="font-bold text-gray-800 text-lg">Scrapple & Egg Sandwich</span><span class="font-bold text-lg">$9.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Bologna & Egg Sandwich', 9.00)"><span class="font-bold text-gray-800 text-lg">Bologna & Egg Sandwich</span><span class="font-bold text-lg">$9.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Ham & Egg Sandwich', 10.00)"><span class="font-bold text-gray-800 text-lg">Ham & Egg Sandwich</span><span class="font-bold text-lg">$10.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Beef Bacon & Egg Sandwich', 11.00)"><span class="font-bold text-gray-800 text-lg">Beef Bacon & Egg Sandwich</span><span class="font-bold text-lg">$11.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('BLT Sandwich', 8.00)"><span class="font-bold text-gray-800 text-lg">BLT Sandwich</span><span class="font-bold text-lg">$8.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Turkey BLT Sandwich', 10.00)"><span class="font-bold text-gray-800 text-lg">Turkey BLT Sandwich</span><span class="font-bold text-lg">$10.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Steak & Cheese Breakfast Sub', 13.00)"><span class="font-bold text-gray-800 text-lg">Steak & Cheese Breakfast Sub</span><span class="font-bold text-lg">$13.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Steak, Egg & Cheese Sub', 16.00)"><span class="font-bold text-gray-800 text-lg">Steak, Egg & Cheese Sub</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Sausage Egg & Cheese Croissant', 9.00)"><span class="font-bold text-gray-800 text-lg">Sausage Egg & Cheese Croissant</span><span class="font-bold text-lg">$9.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Bacon Egg & Cheese Croissant', 9.00)"><span class="font-bold text-gray-800 text-lg">Bacon Egg & Cheese Croissant</span><span class="font-bold text-lg">$9.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Ham Egg & Cheese Croissant', 11.00)"><span class="font-bold text-gray-800 text-lg">Ham Egg & Cheese Croissant</span><span class="font-bold text-lg">$11.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Turkey Egg & Cheese Croissant', 11.00)"><span class="font-bold text-gray-800 text-lg">Turkey Egg & Cheese Croissant</span><span class="font-bold text-lg">$11.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Scrapple Egg & Cheese Croissant', 11.00)"><span class="font-bold text-gray-800 text-lg">Scrapple Egg & Cheese Croissant</span><span class="font-bold text-lg">$11.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Beef Bacon Egg & Cheese Croissant', 13.00)"><span class="font-bold text-gray-800 text-lg">Beef Bacon Egg & Cheese Croissant</span><span class="font-bold text-lg">$13.00</span></div>
+        </div>
+
+        <div class="font-black text-red-700 text-2xl border-b-4 border-red-700 mb-4 mt-12 pb-2 uppercase tracking-wider sticky top-0 bg-white py-2 z-10">
+          Breakfast Platters
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Bacon & Egg Platter', 13.00)"><span class="font-bold text-gray-800 text-lg">Bacon & Egg Platter</span><span class="font-bold text-lg">$13.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Sausage & Egg Platter', 13.00)"><span class="font-bold text-gray-800 text-lg">Sausage & Egg Platter</span><span class="font-bold text-lg">$13.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Ham & Egg Platter', 14.00)"><span class="font-bold text-gray-800 text-lg">Ham & Egg Platter</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Scrapple & Egg Platter', 14.00)"><span class="font-bold text-gray-800 text-lg">Scrapple & Egg Platter</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Turkey Bacon Platter', 15.00)"><span class="font-bold text-gray-800 text-lg">Turkey Bacon Platter</span><span class="font-bold text-lg">$15.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Turkey Sausage Platter', 15.00)"><span class="font-bold text-gray-800 text-lg">Turkey Sausage Platter</span><span class="font-bold text-lg">$15.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Beef Bacon Platter', 16.00)"><span class="font-bold text-gray-800 text-lg">Beef Bacon Platter</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Pancakes Breakfast', 13.00)"><span class="font-bold text-gray-800 text-lg">Pancakes Breakfast</span><span class="font-bold text-lg">$13.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Waffles Breakfast', 13.00)"><span class="font-bold text-gray-800 text-lg">Waffles Breakfast</span><span class="font-bold text-lg">$13.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('French Toast', 13.00)"><span class="font-bold text-gray-800 text-lg">French Toast</span><span class="font-bold text-lg">$13.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Western Omelette', 13.00)"><span class="font-bold text-gray-800 text-lg">Western Omelette</span><span class="font-bold text-lg">$13.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Veggie Omelette', 11.00)"><span class="font-bold text-gray-800 text-lg">Veggie Omelette</span><span class="font-bold text-lg">$11.00</span></div>
+        </div>
+
+        <div class="font-black text-red-700 text-2xl border-b-4 border-red-700 mb-4 mt-12 pb-2 uppercase tracking-wider sticky top-0 bg-white py-2 z-10">
+          Subs & Sandwiches
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('The Bleaker St (Only)', 14.00)"><span class="font-bold text-gray-800 text-lg">The Bleaker St (Only)</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('The Bleaker St w/Fries', 16.00)"><span class="font-bold text-gray-800 text-lg">The Bleaker St w/Fries</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('The Reuben (Only)', 14.00)"><span class="font-bold text-gray-800 text-lg">The Reuben (Only)</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('The Reuben w/Fries', 16.00)"><span class="font-bold text-gray-800 text-lg">The Reuben w/Fries</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Bulgogi Steak Sandwich (Only)', 14.00)"><span class="font-bold text-gray-800 text-lg">Bulgogi Steak Sandwich (Only)</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Bulgogi Steak Sandwich w/Fries', 16.00)"><span class="font-bold text-gray-800 text-lg">Bulgogi Steak Sandwich w/Fries</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Chicken Sandwich (Only)', 13.00)"><span class="font-bold text-gray-800 text-lg">Chicken Sandwich (Only)</span><span class="font-bold text-lg">$13.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Chicken Sandwich w/Fries', 14.50)"><span class="font-bold text-gray-800 text-lg">Chicken Sandwich w/Fries</span><span class="font-bold text-lg">$14.50</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Cheeseburger (Only)', 13.00)"><span class="font-bold text-gray-800 text-lg">Cheeseburger (Only)</span><span class="font-bold text-lg">$13.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Cheeseburger w/Fries', 14.50)"><span class="font-bold text-gray-800 text-lg">Cheeseburger w/Fries</span><span class="font-bold text-lg">$14.50</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Steak & Cheese Sub (Only)', 14.00)"><span class="font-bold text-gray-800 text-lg">Steak & Cheese Sub (Only)</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Steak & Cheese Sub w/Fries', 16.00)"><span class="font-bold text-gray-800 text-lg">Steak & Cheese Sub w/Fries</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Whiting Sub (Only)', 14.00)"><span class="font-bold text-gray-800 text-lg">Whiting Sub (Only)</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Whiting Sub w/Fries', 16.00)"><span class="font-bold text-gray-800 text-lg">Whiting Sub w/Fries</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Salmon Burger Sub (Only)', 14.00)"><span class="font-bold text-gray-800 text-lg">Salmon Burger Sub (Only)</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Salmon Burger Sub w/Fries', 16.00)"><span class="font-bold text-gray-800 text-lg">Salmon Burger Sub w/Fries</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Tuna Sub (Only)', 14.00)"><span class="font-bold text-gray-800 text-lg">Tuna Sub (Only)</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Tuna Sub w/Fries', 16.00)"><span class="font-bold text-gray-800 text-lg">Tuna Sub w/Fries</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Half Smoke', 7.00)"><span class="font-bold text-gray-800 text-lg">Half Smoke</span><span class="font-bold text-lg">$7.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Cold Cut Sandwich (Only)', 14.00)"><span class="font-bold text-gray-800 text-lg">Cold Cut Sandwich (Only)</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Cold Cut Sandwich w/Fries', 16.00)"><span class="font-bold text-gray-800 text-lg">Cold Cut Sandwich w/Fries</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Turkey Sub (Only)', 14.00)"><span class="font-bold text-gray-800 text-lg">Turkey Sub (Only)</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Turkey Sub w/Fries', 16.00)"><span class="font-bold text-gray-800 text-lg">Turkey Sub w/Fries</span><span class="font-bold text-lg">$16.00</span></div>
+        </div>
+
+        <div class="font-black text-red-700 text-2xl border-b-4 border-red-700 mb-4 mt-12 pb-2 uppercase tracking-wider sticky top-0 bg-white py-2 z-10">
+          Wings
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('3 Wings', 8.00)"><span class="font-bold text-gray-800 text-lg">3 Wings</span><span class="font-bold text-lg">$8.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('4 Wings', 10.00)"><span class="font-bold text-gray-800 text-lg">4 Wings</span><span class="font-bold text-lg">$10.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('5 Wings', 12.00)"><span class="font-bold text-gray-800 text-lg">5 Wings</span><span class="font-bold text-lg">$12.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('6 Wings', 14.00)"><span class="font-bold text-gray-800 text-lg">6 Wings</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('10 Wings', 18.00)"><span class="font-bold text-gray-800 text-lg">10 Wings</span><span class="font-bold text-lg">$18.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('3 Wings Platter w/Fries', 13.00)"><span class="font-bold text-gray-800 text-lg">3 Wings Platter w/Fries</span><span class="font-bold text-lg">$13.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('4 Wings Platter w/Fries', 14.00)"><span class="font-bold text-gray-800 text-lg">4 Wings Platter w/Fries</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('5 Wings Platter w/Fries', 18.00)"><span class="font-bold text-gray-800 text-lg">5 Wings Platter w/Fries</span><span class="font-bold text-lg">$18.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Wing Zings Platter', 16.00)"><span class="font-bold text-gray-800 text-lg">Wing Zings Platter</span><span class="font-bold text-lg">$16.00</span></div>
+        </div>
+
+        <div class="font-black text-red-700 text-2xl border-b-4 border-red-700 mb-4 mt-12 pb-2 uppercase tracking-wider sticky top-0 bg-white py-2 z-10">
+          Seafood & Dinner
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Chicken Tenders (5) w/Fries', 16.00)"><span class="font-bold text-gray-800 text-lg">Chicken Tenders (5) w/Fries</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Chicken Nuggets (10) w/Fries', 14.00)"><span class="font-bold text-gray-800 text-lg">Chicken Nuggets (10) w/Fries</span><span class="font-bold text-lg">$14.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Pork Chop Dinner', 18.00)"><span class="font-bold text-gray-800 text-lg">Pork Chop Dinner</span><span class="font-bold text-lg">$18.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Pork Chop Sandwich w/Fries', 15.00)"><span class="font-bold text-gray-800 text-lg">Pork Chop Sandwich w/Fries</span><span class="font-bold text-lg">$15.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Whiting Platter', 16.00)"><span class="font-bold text-gray-800 text-lg">Whiting Platter</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Croaker Platter', 20.00)"><span class="font-bold text-gray-800 text-lg">Croaker Platter</span><span class="font-bold text-lg">$20.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Tilapia Platter', 17.00)"><span class="font-bold text-gray-800 text-lg">Tilapia Platter</span><span class="font-bold text-lg">$17.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Flounder Platter', 17.00)"><span class="font-bold text-gray-800 text-lg">Flounder Platter</span><span class="font-bold text-lg">$17.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Jumbo Shrimp Platter', 16.00)"><span class="font-bold text-gray-800 text-lg">Jumbo Shrimp Platter</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Shrimp Basket w/Fries', 16.00)"><span class="font-bold text-gray-800 text-lg">Shrimp Basket w/Fries</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Bulgogi & Rice', 16.00)"><span class="font-bold text-gray-800 text-lg">Bulgogi & Rice</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Scallop Platter (10)', 15.00)"><span class="font-bold text-gray-800 text-lg">Scallop Platter (10)</span><span class="font-bold text-lg">$15.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Combo Seafood Platter', 20.00)"><span class="font-bold text-gray-800 text-lg">Combo Seafood Platter</span><span class="font-bold text-lg">$20.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Crab Stick (7pc)', 16.00)"><span class="font-bold text-gray-800 text-lg">Crab Stick (7pc)</span><span class="font-bold text-lg">$16.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Crab Stick (5pc)', 12.00)"><span class="font-bold text-gray-800 text-lg">Crab Stick (5pc)</span><span class="font-bold text-lg">$12.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Crab Stick (3pc)', 8.00)"><span class="font-bold text-gray-800 text-lg">Crab Stick (3pc)</span><span class="font-bold text-lg">$8.00</span></div>
+        </div>
+
+        <div class="font-black text-red-700 text-2xl border-b-4 border-red-700 mb-4 mt-12 pb-2 uppercase tracking-wider sticky top-0 bg-white py-2 z-10">
+          Sides & Drinks
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pb-20">
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('French Fries', 6.00)"><span class="font-bold text-gray-800 text-lg">French Fries</span><span class="font-bold text-lg">$6.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Home Fries', 6.00)"><span class="font-bold text-gray-800 text-lg">Home Fries</span><span class="font-bold text-lg">$6.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Grits', 5.00)"><span class="font-bold text-gray-800 text-lg">Grits</span><span class="font-bold text-lg">$5.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Seasonal Fruit', 5.00)"><span class="font-bold text-gray-800 text-lg">Seasonal Fruit</span><span class="font-bold text-lg">$5.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Soda (Can)', 2.00)"><span class="font-bold text-gray-800 text-lg">Soda (Can)</span><span class="font-bold text-lg">$2.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Soda (Bottle)', 2.50)"><span class="font-bold text-gray-800 text-lg">Soda (Bottle)</span><span class="font-bold text-lg">$2.50</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Coffee (Small)', 2.50)"><span class="font-bold text-gray-800 text-lg">Coffee (Small)</span><span class="font-bold text-lg">$2.50</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Coffee (Large)', 3.00)"><span class="font-bold text-gray-800 text-lg">Coffee (Large)</span><span class="font-bold text-lg">$3.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Tea/Lemonade', 3.00)"><span class="font-bold text-gray-800 text-lg">Tea/Lemonade</span><span class="font-bold text-lg">$3.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Juice/Gatorade/Monster', 3.50)"><span class="font-bold text-gray-800 text-lg">Juice/Gatorade/Monster</span><span class="font-bold text-lg">$3.50</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Water (Small)', 2.00)"><span class="font-bold text-gray-800 text-lg">Water (Small)</span><span class="font-bold text-lg">$2.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Water (Large)', 3.00)"><span class="font-bold text-gray-800 text-lg">Water (Large)</span><span class="font-bold text-lg">$3.00</span></div>
+          <div class="menu-row rounded-xl shadow-sm" onclick="openCustomizer('Extra Sauce', 0.50)"><span class="font-bold text-gray-800 text-lg">Extra Sauce</span><span class="font-bold text-lg">$0.50</span></div>
+        </div>
+
+      </div>
+
+      <!-- TRANSCRIPT VIEW -->
+      <div id="transcript-view" class="flex-1 flex flex-col p-4 hidden bg-gray-100 overflow-hidden">
+        <div id="transcript-log" class="flex-1 overflow-y-auto space-y-4 kiosk-scroll pr-2">
+          <div class="text-center text-gray-400 text-sm mt-10">
+            <p>Mike is listening...</p>
+            <p class="text-xs mt-2">"I want a cheeseburger sub"</p>
+          </div>
+        </div>
+
+        <div class="h-16 flex items-center justify-center gap-1 mt-4 opacity-50">
+          <div class="w-1 h-4 bg-red-500 rounded animate-pulse"></div>
+          <div class="w-1 h-8 bg-red-500 rounded animate-pulse" style="animation-delay: 0.1s"></div>
+          <div class="w-1 h-6 bg-red-500 rounded animate-pulse" style="animation-delay: 0.2s"></div>
+          <div class="w-1 h-4 bg-red-500 rounded animate-pulse" style="animation-delay: 0.3s"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- RIGHT: CART -->
+    <section class="w-1/2 h-full flex flex-col bg-white shadow-xl relative z-20">
+      <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
+        <div>
+          <h2 class="text-2xl font-black text-gray-800">Your Order</h2>
+          <div class="text-xs text-gray-400 uppercase font-bold tracking-widest mt-1">Review Items</div>
+        </div>
+        <button onclick="clearOrder()" class="text-xs text-red-500 hover:text-red-700 font-bold border border-red-100 px-3 py-2 rounded hover:bg-red-50 transition-colors">CLEAR ALL</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6 bg-gray-50/50 relative">
+        <ul id="order-list" class="space-y-3 pb-20"></ul>
+
+        <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-gray-300 pointer-events-none">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+          <p class="font-medium">Cart is empty</p>
+        </div>
+      </div>
+
+      <div class="p-6 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-30">
+        <div class="flex justify-between items-end mb-4">
+          <span class="text-gray-500 font-bold text-sm uppercase">Total Due</span>
+          <span id="total-display" class="text-4xl font-black text-gray-900">$0.00</span>
+        </div>
+        <button id="manual-submit-btn" onclick="submitOrderManually()" class="w-full py-5 bg-green-600 hover:bg-green-700 text-white font-black text-xl rounded-2xl shadow-lg shadow-green-600/20 transform active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none disabled:text-gray-500" disabled>
+          PLACE ORDER
+        </button>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- =======================
+       CUSTOMIZER OVERLAY
+  ======================== -->
+  <div id="customizer-overlay" class="hidden fixed inset-0 z-[200] bg-black/50">
+    <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl p-5 max-h-[85vh] overflow-y-auto kiosk-scroll">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div id="cust-item-name" class="text-xl font-black text-gray-900"></div>
+          <div id="cust-item-price" class="text-sm text-gray-500 font-bold mt-1"></div>
+        </div>
+        <button onclick="closeCustomizer()" class="text-gray-500 font-bold px-3 py-2 rounded-lg hover:bg-gray-100">✕</button>
+      </div>
+
+      <div class="mt-4 space-y-5">
+
+
+        <!-- FREE TOPPINGS FOR BREAKFAST SANDWICHES (NEW) -->
+        <div id="sec-breakfast-toppings" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Free Toppings</div>
+          <div class="grid grid-cols-2 gap-2 mb-3">
+            <button class="chip highlight" onclick="selectStandardBreakfast()">Standard Toppings</button>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button class="chip" data-group="bfToppingMulti" data-val="Lettuce" data-multi="1">Lettuce</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Tomato" data-multi="1">Tomato</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Onion" data-multi="1">Onion</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Hot Peppers" data-multi="1">Hot Peppers</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Mayonnaise" data-multi="1">Mayonnaise</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Ketchup" data-multi="1">Ketchup</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Mustard" data-multi="1">Mustard</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Honey Mustard" data-multi="1">Honey Mustard</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Fried Onion" data-multi="1">Fried Onion</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="American Cheese" data-multi="1">American Cheese</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Provolone Cheese" data-multi="1">Provolone Cheese</button>
+          </div>
+        </div>
+
+        <!-- FREE TOPPINGS FOR SUBS (NEW) -->
+        <div id="sec-sub-toppings" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Free Toppings</div>
+          <div class="grid grid-cols-2 gap-2 mb-3">
+            <button class="chip highlight" onclick="selectStandardSub()">Standard Toppings</button>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button class="chip" data-group="toppingMulti" data-val="Lettuce" data-multi="1">Lettuce</button>
+            <button class="chip" data-group="toppingMulti" data-val="Tomato" data-multi="1">Tomato</button>
+            <button class="chip" data-group="toppingMulti" data-val="Onion" data-multi="1">Onion</button>
+            <button class="chip" data-group="toppingMulti" data-val="Hot Peppers" data-multi="1">Hot Peppers</button>
+            <button class="chip" data-group="toppingMulti" data-val="Mayonnaise" data-multi="1">Mayonnaise</button>
+            <button class="chip" data-group="toppingMulti" data-val="Ketchup" data-multi="1">Ketchup</button>
+            <button class="chip" data-group="toppingMulti" data-val="Mustard" data-multi="1">Mustard</button>
+            <button class="chip" data-group="toppingMulti" data-val="Honey Mustard" data-multi="1">Honey Mustard</button>
+            <button class="chip" data-group="toppingMulti" data-val="Fried Onion" data-multi="1">Fried Onion</button>
+            <button class="chip" data-group="toppingMulti" data-val="American Cheese" data-multi="1">American Cheese</button>
+            <button class="chip" data-group="toppingMulti" data-val="Provolone Cheese" data-multi="1">Provolone Cheese</button>
+          </div>
+        </div>
+
+        <!-- Breakfast Sandwich Bread (no charge) -->
+        <div id="sec-bread" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Bread</div>
+          <div class="grid grid-cols-3 gap-2">
+            <button class="chip" data-group="bread" data-val="White Bread">White</button>
+            <button class="chip" data-group="bread" data-val="Wheat Bread">Wheat</button>
+            <button class="chip" data-group="bread" data-val="No Bread">No Bread</button>
+          </div>
+        </div>
+
+        <!-- Toasted / Not Toasted -->
+        <div id="sec-toasted" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Toasted</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-group="toasted" data-val="Toasted">Toasted</button>
+            <button class="chip" data-group="toasted" data-val="Not Toasted">Not Toasted</button>
+          </div>
+        </div>
+
+        <!-- Breakfast Sandwich Egg Options -->
+        <div id="sec-eggs-sandwich" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Eggs</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-billable="1" data-line="Extra Eggs" data-price="3.00">Extra Eggs +$3</button>
+            <button class="chip" data-group="eggOption" data-val="No Eggs">No eggs</button>
+            <button class="chip highlight" data-group="eggOption" data-val="Fried Hard">Fried hard</button>
+          </div>
+        </div>
+
+        <!-- Breakfast Platter Meat Choice -->
+        <div id="sec-meat-choice-platters" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">
+            Choice of Meat <span class="text-red-600">(Required)</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip highlight" data-group="meatChoice" data-val="Meat: Bacon">Bacon</button>
+            <button class="chip highlight" data-group="meatChoice" data-val="Meat: Sausage">Sausage</button>
+            <button class="chip" data-group="meatChoice" data-val="Meat: Turkey Bacon" data-billable="1" data-line="Meat Upgrade: Turkey Bacon" data-price="1.00">Turkey Bacon +$1</button>
+            <button class="chip" data-group="meatChoice" data-val="Meat: Turkey Sausage" data-billable="1" data-line="Meat Upgrade: Turkey Sausage" data-price="1.00">Turkey Sausage +$1</button>
+            <button class="chip" data-group="meatChoice" data-val="Meat: Ham" data-billable="1" data-line="Meat Upgrade: Ham" data-price="1.00">Ham +$1</button>
+            <button class="chip" data-group="meatChoice" data-val="Meat: Scrapple" data-billable="1" data-line="Meat Upgrade: Scrapple" data-price="1.00">Scrapple +$1</button>
+            <button class="chip" data-group="meatChoice" data-val="Meat: Beef Bacon" data-billable="1" data-line="Meat Upgrade: Beef Bacon" data-price="2.00">Beef Bacon +$2</button>
+          </div>
+        </div>
+
+        <!-- All Day Breakfast: Bread Upsell -->
+        <div id="sec-bread-upsell" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Add Bread ($2)</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-billable="1" data-line="White Toast" data-price="2.00">White +$2</button>
+            <button class="chip" data-billable="1" data-line="Wheat Toast" data-price="2.00">Wheat +$2</button>
+          </div>
+          <div class="mt-3 font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Toasted</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-group="toastedPlatter" data-val="Toasted">Toasted</button>
+            <button class="chip" data-group="toastedPlatter" data-val="Not Toasted">Not Toasted</button>
+          </div>
+          <div class="mt-3 font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Butter / Jelly</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-group="spreadMulti" data-val="Butter" data-multi="1">Butter</button>
+            <button class="chip" data-group="spreadMulti" data-val="Jelly" data-multi="1">Jelly</button>
+          </div>
+        </div>
+
+        <!-- Extra Meat (Breakfast) -->
+        <div id="sec-extra-meat-breakfast" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Extra Meat</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-billable="1" data-line="Extra Bacon" data-price="3.00">Bacon +$3</button>
+            <button class="chip" data-billable="1" data-line="Extra Sausage" data-price="3.00">Sausage +$3</button>
+            <button class="chip" data-billable="1" data-line="Extra Bologna" data-price="4.00">Bologna +$4</button>
+            <button class="chip" data-billable="1" data-line="Extra Turkey Bacon" data-price="4.00">Turkey Bacon +$4</button>
+            <button class="chip" data-billable="1" data-line="Extra Turkey Sausage" data-price="4.00">Turkey Sausage +$4</button>
+            <button class="chip" data-billable="1" data-line="Extra Beef Bacon" data-price="5.00">Beef Bacon +$5</button>
+            <button class="chip" data-billable="1" data-line="Extra Scrapple" data-price="4.00">Scrapple +$4</button>
+            <button class="chip" data-billable="1" data-line="Extra Ham" data-price="4.00">Ham +$4</button>
+          </div>
+        </div>
+
+        <!-- Extra Meat (Lunch) -->
+        <div id="sec-extra-meat-lunch" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Extra Meat</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-billable="1" data-line="Extra Meat" data-price="5.00">Extra Meat +$5</button>
+          </div>
+        </div>
+
+
+        <!-- SEAFOOD PLATTER BREAD UPSELL -->
+        <div id="sec-seafood-bread" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Add Bread ($2)</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-billable="1" data-line="White Bread" data-price="2.00">White Bread +$2</button>
+            <button class="chip" data-billable="1" data-line="Wheat Bread" data-price="2.00">Wheat Bread +$2</button>
+          </div>
+        </div>
+
+        <!-- Sauces & Sides -->
+        <div id="sec-sauces" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Sauces & Sides</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-group="sauceMulti" data-val="Ketchup on Side" data-multi="1">Ketchup on side</button>
+            <button class="chip" data-group="sauceMulti" data-val="Mumbo on Side" data-multi="1">Mumbo on side</button>
+            <button class="chip" data-group="sauceMulti" data-val="Hot Sauce" data-multi="1">Hot sauce</button>
+            <button class="chip" data-group="sauceMulti" data-val="No Sauce" data-multi="1">No sauce</button>
+            <button class="chip" data-group="sauceMulti" data-val="Salt & Pepper on Fries" data-multi="1">Salt & pepper on fries</button>
+            <button class="chip" data-group="sauceMulti" data-val="Mumbo on Fries" data-multi="1">Mumbo on fries</button>
+            <button class="chip" data-group="sauceMulti" data-val="Sauce on Side" data-multi="1">Sauce on side</button>
+            <button class="chip highlight" data-group="sauceMulti" data-val="Fried Hard" data-multi="1">Fried hard</button>
+          </div>
+        </div>
+
+
+        <!-- REUBEN DESCRIPTION -->
+        <div id="sec-reuben-note" class="hidden">
+          <div class="bg-yellow-50 border-2 border-yellow-400 rounded-xl p-4">
+            <div class="font-black text-gray-800 text-sm mb-2">📝 THE REUBEN</div>
+            <div class="text-xs text-gray-700 leading-relaxed">
+              Made with <span class="font-bold">corned beef</span>, <span class="font-bold">sauerkraut</span>, and <span class="font-bold">thousand island dressing</span> on <span class="font-bold">rye bread</span>.
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div>
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Notes</div>
+          <input id="cust-notes" type="text" inputmode="text" autocapitalize="sentences" autocomplete="off" placeholder="e.g., grape jelly, light salt, etc." class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-red-200" />
+        </div>
+
+      </div>
+
+      <div class="mt-5 flex gap-3">
+  <button onclick="closeCustomizer()"
+          class="w-1/3 py-4 rounded-2xl font-black bg-gray-100 text-gray-700 hover:bg-gray-200">
+    CANCEL
+  </button>
+
+  <button onclick="addCustomizedItem()"
+          class="w-2/3 py-4 rounded-2xl font-black bg-green-600 text-white hover:bg-green-700">
+    ADD ITEM
+  </button>
+</div>
+
+    </div>
+  </div>
+
+  <!-- =======================
+       DEBUG PANEL
+  ======================== -->
+  <section id="debug-panel" class="fixed bottom-0 left-0 w-full md:w-96 bg-gray-900 border-t border-gray-700 shadow-2xl max-h-60 flex flex-col text-left text-xs hidden z-[100] font-mono text-green-400">
+    <div class="flex items-center justify-between px-3 py-2 bg-gray-800 border-b border-gray-700">
+      <div class="font-bold">ADMIN LOGS</div>
+      <button id="debug-close" class="text-gray-400 hover:text-white px-2">✕</button>
+    </div>
+    <div id="raw-log" class="flex-1 overflow-y-auto p-3 space-y-1">
+      <div class="text-gray-500">System Ready.</div>
+    </div>
+  </section>
+
+  <script>
+    // CONFIG
+    const VAPI_PUBLIC_KEY   = "d454a336-9928-4cb2-8102-2707249b3f28";
+    const VAPI_ASSISTANT_ID = "1bead665-414c-434b-929a-ad1240505b35";
+    const MAKE_WEBHOOK_URL  = "https://hook.us2.make.com/xaqgz1i35i8al312nkm76to5actknvkc";
+
+    let vapi = null;
+    let isCallActive = false;
+    let currentTotal = 0.0;
+    let orderLines = [];
+    let walkInCount = 1;
+
+    // UPDATED PRICE BOOK
+    const PRICE_BOOK = {
+      "the bleaker st (only)": 14.00,
+      "the bleaker st w/fries": 16.00,
+      "the reuben (only)": 14.00,
+      "the reuben w/fries": 16.00,
+      "bulgogi steak sandwich (only)": 14.00,
+      "bulgogi steak sandwich w/fries": 16.00,
+      "chicken sandwich (only)": 13.00,
+      "chicken sandwich w/fries": 14.50,
+      "chicken tenders (5) w/fries": 16.00,
+      "chicken nuggets (10) w/fries": 14.00,
+      "cheeseburger sub (only)": 16.00,
+      "cheeseburger sub w/fries": 18.00,
+      "cheeseburger (only)": 13.00,
+      "cheeseburger w/fries": 14.50,
+      "steak & cheese sub (only)": 14.00,
+      "steak & cheese sub w/fries": 16.00,
+      "whiting sub (only)": 14.00,
+      "whiting sub w/fries": 16.00,
+      "salmon burger sub (only)": 14.00,
+      "salmon burger sub w/fries": 16.00,
+      "tuna sub (only)": 14.00,
+      "tuna sub w/fries": 16.00,
+      "half smoke": 7.00,
+      "cold cut sandwich (only)": 14.00,
+      "cold cut sandwich w/fries": 16.00,
+      "turkey sub (only)": 14.00,
+      "turkey sub w/fries": 16.00,
+      "pork chop sandwich w/fries": 15.00,
+      "flounder platter": 17.00,
+    };
+
+    function normName(s) {
+      return String(s || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .replace(/\s*\(only\)\s*/g, " (only)")
+        .replace(/with fries/g, "w/fries");
+    }
+
+    function normalizeBreakfastName(nameRaw) {
+      const n = normName(nameRaw);
+      const looksLikeBreakfastEgg = n.includes("& egg") && !n.includes("sub") && !n.includes("platter");
+      const alreadySandwich = n.includes("sandwich") || n.includes("croissant") || n.includes("blt");
+      if (looksLikeBreakfastEgg && !alreadySandwich) {
+        return `${String(nameRaw).trim()} Sandwich`;
+      }
+      return String(nameRaw).trim();
+    }
+
+    // DOM
+    const landingPage = document.getElementById('landing-page');
+    const splitScreen = document.getElementById('split-screen');
+    const menuView = document.getElementById('menu-view');
+    const transcriptView = document.getElementById('transcript-view');
+    const leftPanelTitle = document.getElementById('left-panel-title');
+    const miniVoiceControls = document.getElementById('mini-voice-controls');
+    const vapiToggleBtn = document.getElementById('vapi-toggle-btn');
+    const transcriptLog = document.getElementById('transcript-log');
+    const orderList = document.getElementById('order-list');
+    const emptyState = document.getElementById('empty-state');
+    const totalDisplay = document.getElementById('total-display');
+    const manualSubmitBtn = document.getElementById('manual-submit-btn');
+    const openDebugBtn = document.getElementById('open-debug');
+    const debugPanel = document.getElementById('debug-panel');
+    const debugCloseBtn = document.getElementById('debug-close');
+    const rawLog = document.getElementById('raw-log');
+
+    // VIEW CONTROLLER
+    function activateVoiceMode() {
+      landingPage.classList.add('hidden');
+      splitScreen.classList.remove('hidden');
+      menuView.classList.add('hidden');
+      transcriptView.classList.remove('hidden');
+      leftPanelTitle.textContent = "Live Transcript";
+      miniVoiceControls.classList.remove('hidden');
+      clearTranscript();
+      startCall();
+    }
+
+    function activateMenuMode() {
+      landingPage.classList.add('hidden');
+      splitScreen.classList.remove('hidden');
+      transcriptView.classList.add('hidden');
+      menuView.classList.remove('hidden');
+      leftPanelTitle.textContent = "Menu";
+      miniVoiceControls.classList.add('hidden');
+      if (isCallActive) endCall();
+    }
+
+    function returnToLanding() {
+      if (isCallActive) endCall();
+      splitScreen.classList.add('hidden');
+      landingPage.classList.remove('hidden');
+    }
+
+    vapiToggleBtn.addEventListener('click', () => {
+      if (isCallActive) endCall();
+      else startCall();
+    });
+
+    // VAPI
+    function startCall() {
+      if (!vapi) return;
+      vapi.start(VAPI_ASSISTANT_ID);
+      vapiToggleBtn.textContent = "STOP";
+      vapiToggleBtn.classList.replace('bg-green-600', 'bg-red-600');
+    }
+
+    function endCall() {
+      if (!vapi) return;
+      vapi.stop();
+      vapiToggleBtn.textContent = "SPEAK";
+      vapiToggleBtn.classList.replace('bg-red-600', 'bg-green-600');
+    }
+
+    function setupVapiEvents() {
+      vapi.on("call-start", () => { isCallActive = true; });
+      vapi.on("call-end", () => { isCallActive = false; });
+
+      vapi.on("message", (msg) => {
+        if (msg.type === "transcript" && msg.transcriptType === "final") {
+          const who = msg.role === "assistant" ? "Mike" : "User";
+          logTranscript(who, msg.transcript);
+        }
+        if (msg.type === "function-call" && msg.functionCall) {
+          handleSingleToolCall(msg.functionCall.name, msg.functionCall.parameters, { type: "function-call" });
+        }
+        if (msg.type === "tool-calls" && Array.isArray(msg.toolCallList)) {
+          msg.toolCallList.forEach(tool => {
+            handleSingleToolCall(tool.function.name, tool.function.arguments, { type: "tool-calls", toolCallId: tool.id });
+          });
+        }
+      });
+    }
+
+    // ORDER LOGIC
+    function addItemToReceipt(itemName, price, modifiers, quantity = 1) {
+      itemName = normalizeBreakfastName(itemName);
+      const key = normName(itemName);
+      const forcedPrice = PRICE_BOOK[key];
+      const numPrice = (typeof forcedPrice === "number") ? forcedPrice : parseFloat(price);
+      if (isNaN(numPrice) || numPrice <= 0) return;
+      const qty = quantity > 0 ? quantity : 1;
+      const modsArray = Array.isArray(modifiers) ? modifiers : [];
+      const modsString = modsArray.sort().join(",");
+
+      const existingItem = orderLines.find(item =>
+        item.name === itemName &&
+        item.modifiers.sort().join(",") === modsString
+      );
+
+      if (existingItem) {
+        existingItem.quantity += qty;
+      } else {
+        orderLines.push({
+          name: itemName,
+          price: numPrice,
+          modifiers: modsArray,
+          quantity: qty
+        });
+      }
+
+      renderOrderList();
+    }
+
+    function removeItemFromReceipt(index) {
+      if (index > -1 && index < orderLines.length) {
+        currentTotal -= (orderLines[index].price * orderLines[index].quantity);
+        orderLines.splice(index, 1);
+      }
+      renderOrderList();
+    }
+
+    function renderOrderList() {
+      orderList.innerHTML = "";
+      currentTotal = 0;
+
+      if (orderLines.length === 0) {
+        emptyState.classList.remove('hidden');
+        manualSubmitBtn.disabled = true;
+      } else {
+        emptyState.classList.add('hidden');
+        manualSubmitBtn.disabled = false;
+      }
+
+      orderLines.forEach((item, index) => {
+        const lineTotal = item.price * item.quantity;
+        currentTotal += lineTotal;
+
+        const li = document.createElement("li");
+        li.className = "flex justify-between items-start border border-gray-100 bg-white p-4 rounded-xl shadow-sm";
+        li.style.cursor = "pointer";
+        li.onclick = () => removeItemFromReceipt(index);
+
+        const modsHtml = item.modifiers.length > 0
+          ? `<div class="text-xs text-gray-500 mt-1">+ ${item.modifiers.join(", ")}</div>`
+          : "";
+
+        const qtyBadge = item.quantity > 1
+          ? `<span class="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full mr-2">x${item.quantity}</span>`
+          : "";
+
+        li.innerHTML = `
+          <div class="pointer-events-none flex-1">
+            <div class="flex items-center">
+              ${qtyBadge}
+              <div class="font-bold text-gray-800 text-lg leading-tight">${item.name}</div>
+            </div>
+            ${modsHtml}
+          </div>
+          <div class="flex flex-col items-end gap-1 ml-4">
+            <div class="font-bold text-gray-900 text-lg">$${lineTotal.toFixed(2)}</div>
+            <div class="text-red-400 text-[10px] font-bold uppercase tracking-wider">Remove</div>
+          </div>
+        `;
+        orderList.appendChild(li);
+      });
+
+      totalDisplay.textContent = "$" + currentTotal.toFixed(2);
+    }
+
+    function clearOrder() {
+      orderLines = [];
+      currentTotal = 0.0;
+      orderList.innerHTML = "";
+      updateTotals();
+    }
+
+    function updateTotals() {
+      if (currentTotal < 0) currentTotal = 0;
+      totalDisplay.textContent = "$" + currentTotal.toFixed(2);
+
+      if (orderLines.length === 0) {
+        manualSubmitBtn.disabled = true;
+        emptyState.classList.remove('hidden');
+      } else {
+        manualSubmitBtn.disabled = false;
+        emptyState.classList.add('hidden');
+      }
+    }
+
+    // TRANSCRIPT
+    function logTranscript(role, text) {
+      if (!text) return;
+      const div = document.createElement('div');
+      const isMike = role === "Mike";
+
+      div.className = `p-3 rounded-2xl max-w-[85%] text-sm ${isMike
+        ? "bg-white border border-gray-200 text-gray-800 self-start rounded-tl-none shadow-sm"
+        : "bg-blue-600 text-white self-end rounded-tr-none shadow-md"}`;
+
+      div.innerHTML = `<div class="text-[10px] font-bold mb-1 opacity-70 uppercase">${isMike ? "Mike" : "You"}</div>${text}`;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = `flex w-full ${isMike ? "justify-start" : "justify-end"} animate-[fadeIn_0.2s_ease-out]`;
+      wrapper.appendChild(div);
+
+      transcriptLog.appendChild(wrapper);
+
+      setTimeout(() => {
+        transcriptLog.scrollTop = transcriptLog.scrollHeight;
+      }, 50);
+
+      logToDebug(role, text);
+    }
+
+    function clearTranscript() {
+      transcriptLog.innerHTML = `<div class="text-center text-gray-400 text-sm mt-10"><p>Mike is listening...</p></div>`;
+    }
+
+    function logToDebug(role, text) {
+      const dLine = document.createElement('div');
+      const time = new Date().toLocaleTimeString().split(" ")[0];
+      dLine.textContent = `[${time}] ${role}: ${text}`;
+      rawLog.appendChild(dLine);
+      rawLog.scrollTop = rawLog.scrollHeight;
+    }
+
+    // TOOL CALLS
+    async function handleSingleToolCall(fnNameRaw, rawParams, ctx) {
+      if (!fnNameRaw) return;
+      let params = rawParams;
+      if (typeof params === "string") { try { params = JSON.parse(params); } catch (_) {} }
+
+      const normalized = fnNameRaw.toLowerCase();
+      logToDebug("TOOL", `${normalized} called`);
+
+      if (normalized === "update_screen") {
+        const action = (params.action || "add").toLowerCase();
+        const itemName = params.item_name || params.item || "Item";
+        const price = parseFloat(params.price || 0);
+        const qty = parseInt(params.quantity || 1);
+        const mods = params.modifiers || [];
+
+        if (action === "remove") {
+          removeItemsLogic(itemName, qty);
+        } else {
+          addItemToReceipt(itemName, price, mods, qty);
+        }
+
+        if (ctx.type === "tool-calls") {
+          vapi.send({
+            type: "tool-calls-result",
+            toolCallList: [{ toolCallId: ctx.toolCallId, result: { items: orderLines, total: currentTotal } }]
+          });
+        }
+      }
+
+      if (normalized.includes("submit")) {
+        await submitOrderManually();
+        if (ctx.type === "tool-calls") {
+          vapi.send({ type: "tool-calls-result", toolCallList: [{ toolCallId: ctx.toolCallId, result: "Order Submitted" }] });
+        }
+      }
+    }
+
+    function removeItemsLogic(name, qty) {
+      let removedCount = 0;
+      const newOrderLines = [];
+      for (const item of orderLines) {
+        if (item.name.toLowerCase() === name.toLowerCase() && removedCount < qty) {
+          removedCount++;
+          currentTotal -= item.price;
+        } else {
+          newOrderLines.push(item);
+        }
+      }
+      orderLines = newOrderLines;
+      renderOrderList();
+      updateTotals();
+    }
+
+  
+let pollTimer = null;
+let timeoutTimer = null;
+let activeQrUuid = null;
+const PAYMENT_TIMEOUT_MS = 120000; // 120 seconds
+
+function clearPaymentTimers() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (timeoutTimer) { clearTimeout(timeoutTimer); timeoutTimer = null; }
+}
+
+async function submitOrderManually() {
+  if (orderLines.length === 0) return;
+
+  manualSubmitBtn.disabled = true;
+  manualSubmitBtn.textContent = "CREATING PAYMENT…";
+
+  try {
+    const res = await fetch("/.netlify/functions/create-checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        guest_name: `Walk-In #${walkInCount}`,
+        items: orderLines,
+        total: Number(currentTotal.toFixed(2)),
+        source: "kiosk"
+      })
+    });
+
+    const data = await res.json();
+    const { checkout_url, qr_uuid } = data;
+
+    if (!checkout_url || !qr_uuid) {
+      throw new Error("Missing checkout_url or qr_uuid from create-checkout-session");
+    }
+
+    activeQrUuid = qr_uuid;
+
+    // UI
+    document.getElementById("pay-status").textContent = "Waiting for payment…";
+    showPayModal(checkout_url, qr_uuid);
+
+    // Start polling + timeout
+    clearPaymentTimers();
+
+    pollTimer = setInterval(() => pollPaymentStatus(qr_uuid), 1500);
+
+    timeoutTimer = setTimeout(() => {
+      // Only timeout the currently active session
+      if (activeQrUuid !== qr_uuid) return;
+      document.getElementById("pay-status").textContent = "Session expired ⏱️";
+      cancelPaymentFlow();
+    }, PAYMENT_TIMEOUT_MS);
+
+    manualSubmitBtn.textContent = "AWAITING PAYMENT…";
+
+  } catch (e) {
+    console.error(e);
+    manualSubmitBtn.textContent = "ERROR";
+    manualSubmitBtn.disabled = false;
+  }
+}
+
+function showPayModal(url, qrUuid) {
+  document.getElementById("pay-modal").classList.remove("hidden");
+  document.getElementById("pay-order").textContent = `Order: ${qrUuid}`;
+  QRCode.toCanvas(document.getElementById("pay-qr"), url, { width: 260 });
+}
+
+async function pollPaymentStatus(qrUuid) {
+  // If user canceled / switched sessions, ignore
+  if (activeQrUuid !== qrUuid) return;
+
+  try {
+    const res = await fetch(`/.netlify/functions/order-status?qr_uuid=${encodeURIComponent(qrUuid)}`);
+    const data = await res.json();
+
+    if (activeQrUuid !== qrUuid) return;
+
+    if (data.status === "paid") {
+      finalizeAfterPaid(qrUuid);
+    }
+  } catch (e) {
+    // ignore poll errors
+  }
+}
+
+function finalizeAfterPaid(qrUuid) {
+  if (activeQrUuid !== qrUuid) return;
+
+  clearPaymentTimers();
+  document.getElementById("pay-status").textContent = "Payment Confirmed ✅";
+
+  setTimeout(() => {
+    document.getElementById("pay-modal").classList.add("hidden");
+    clearOrder();
+    walkInCount++;
+    manualSubmitBtn.textContent = "PLACE ORDER";
+    manualSubmitBtn.disabled = true;
+    returnToLanding();
+    activeQrUuid = null;
+  }, 1200);
+}
+
+function cancelPaymentFlow() {
+  clearPaymentTimers();
+  document.getElementById("pay-modal").classList.add("hidden");
+  document.getElementById("pay-status").textContent = "Waiting for payment…";
+  manualSubmitBtn.textContent = "PLACE ORDER";
+  manualSubmitBtn.disabled = (orderLines.length === 0);
+  activeQrUuid = null;
+}
+
+async function cashierOverride() {
+  if (!activeQrUuid) return;
+
+  document.getElementById("pay-status").textContent = "Sending to cashier…";
+
+  try {
+    const res = await fetch("/.netlify/functions/mark-cashier", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ qr_uuid: activeQrUuid })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || "cashier override failed");
+
+    // End current payment flow
+    clearPaymentTimers();
+    document.getElementById("pay-status").textContent = "Sent as UNPAID ✅";
+
+    setTimeout(() => {
+      document.getElementById("pay-modal").classList.add("hidden");
+      clearOrder();
+      walkInCount++;
+      manualSubmitBtn.textContent = "PLACE ORDER";
+      manualSubmitBtn.disabled = true;
+      returnToLanding();
+      activeQrUuid = null;
+    }, 900);
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById("pay-status").textContent = "Error sending to cashier ❌";
+  }
+}
+
+
+     
+    // CUSTOMIZER
+    let custItem = { name: "", price: 0 };
+
+    function getCategory(nameRaw){
+      const n = (nameRaw || "").toLowerCase();
+      const isComboWithFries = /w\/fries|with fries/.test(n);
+      const isSub = /\bsub\b/.test(n);
+
+      const isBreakfastSandwich =
+        !n.includes("platter") &&
+        (
+          n.includes("croissant") ||
+          n.includes("blt") ||
+          (n.includes("& egg") && n.includes("sandwich") && !isSub) ||  // "Bacon & Egg Sandwich"
+          (n.includes("& egg") && !isSub && !n.includes("cheese sub"))   // "Ham & Egg" (without sub)
+        );
+
+      const isAllDayBreakfast =
+        /pancakes|waffles|french toast|omelette/.test(n) ||
+        /bacon & egg platter|sausage & egg platter|ham & egg platter|scrapple & egg platter|turkey bacon platter|turkey sausage platter|beef bacon platter/.test(n);
+
+      const isWings = n.includes("wings") || n.includes("wing zings");
+      const isWingPlatter = isWings && n.includes("platter") && isComboWithFries;
+
+      const isSeafoodDinner =
+        n.includes("dinner") || n.includes("basket") ||
+        (n.includes("platter") && !isAllDayBreakfast && !isWingPlatter) ||
+        n.includes("whiting") || n.includes("croaker") || n.includes("tilapia") || n.includes("flounder") ||
+        n.includes("shrimp") || n.includes("scallop") || n.includes("seafood") || n.includes("crab") ||
+        n.includes("bulgogi & rice") ||
+        n.includes("chicken tenders") || n.includes("chicken nuggets");  // ✅ Added
+
+      const isSidesDrinks =
+        n.includes("french fries") || n.includes("home fries") || n.includes("grits") || n.includes("seasonal fruit") ||
+        n.includes("soda") || n.includes("coffee") || n.includes("tea/lemonade") || n.includes("juice") ||
+        n.includes("gatorade") || n.includes("monster") || n.includes("water") || n === "extra sauce";
+
+      const isSubsAndSandwiches =
+        !isBreakfastSandwich && !isAllDayBreakfast && !isWings && !isSeafoodDinner && !isSidesDrinks;
+
+      const noExtraMeatLunch =
+        /chicken tenders|chicken nuggets|salmon burger/.test(n);
+
+      return {
+        n,
+        isSub,
+        isComboWithFries,
+        isBreakfastSandwich,
+        isAllDayBreakfast,
+        isWings,
+        isWingPlatter,
+        isSeafoodDinner,
+        isSidesDrinks,
+        isSubsAndSandwiches,
+        noExtraMeatLunch,
+        isCroissant: n.includes("croissant")
+      };
+    }
+
+    function openCustomizer(name, price) {
+      custItem = { name, price: parseFloat(price) || 0 };
+
+      document.getElementById("cust-item-name").textContent = custItem.name;
+      document.getElementById("cust-item-price").textContent = `$${custItem.price.toFixed(2)}`;
+
+      document.querySelectorAll("#customizer-overlay .chip").forEach(b => b.classList.remove("selected"));
+      document.getElementById("cust-notes").value = "";
+
+      const cat = getCategory(name);
+      const isReuben = cat.n.includes("reuben");
+      const isChickenTendersOrNuggets = cat.n.includes("chicken tenders") || cat.n.includes("chicken nuggets");
+      const isWhitingSub = cat.n.includes("whiting sub");
+      
+      // Check if this is a seafood PLATTER (not sub/sandwich)
+      const isSeafoodPlatter = 
+        cat.n.includes("whiting platter") || 
+        cat.n.includes("tilapia platter") || 
+        cat.n.includes("flounder platter") || 
+        cat.n.includes("croaker platter") ||
+        cat.n.includes("shrimp platter") ||
+        cat.n.includes("shrimp basket") ||
+        cat.n.includes("scallop platter") ||
+        cat.n.includes("combo seafood platter") ||
+        cat.n.includes("crab stick");
+
+      // ✅ Show breakfast toppings for breakfast sandwiches
+      toggleSec("sec-breakfast-toppings", cat.isBreakfastSandwich);
+
+      // ✅ Show sub toppings for subs (including Whiting Sub) EXCEPT Reuben, Chicken Tenders/Nuggets
+      toggleSec("sec-sub-toppings", (cat.isSubsAndSandwiches || isWhitingSub) && !isReuben && !isChickenTendersOrNuggets);
+
+      // ✅ Show Reuben note
+      toggleSec("sec-reuben-note", isReuben);
+
+      // ✅ Show seafood platter bread upsell (ONLY for platters, not subs)
+      toggleSec("sec-seafood-bread", isSeafoodPlatter);
+
+      const showMeatChoice = cat.isAllDayBreakfast && needsPlatterMeatChoice(name);
+      toggleSec("sec-meat-choice-platters", showMeatChoice);
+
+      toggleSec("sec-bread", cat.isBreakfastSandwich && !cat.isCroissant);
+      toggleSec("sec-toasted", cat.isBreakfastSandwich);
+      toggleSec("sec-eggs-sandwich", cat.isBreakfastSandwich);
+      toggleSec("sec-bread-upsell", cat.isAllDayBreakfast);
+      toggleSec("sec-extra-meat-breakfast", cat.isBreakfastSandwich || cat.isAllDayBreakfast);
+
+      // ✅ No extra meat for chicken tenders/nuggets or whiting sub
+      toggleSec("sec-extra-meat-lunch", cat.isSubsAndSandwiches && !cat.noExtraMeatLunch && !isChickenTendersOrNuggets && !isWhitingSub);
+
+      const isFrySide = cat.n.includes("french fries") || cat.n.includes("home fries");
+      const showSauces =
+        (cat.isSubsAndSandwiches && cat.isComboWithFries && !isChickenTendersOrNuggets) ||
+        (isWhitingSub && cat.isComboWithFries) ||  // ✅ Whiting sub w/fries shows sauces
+        cat.isWingPlatter ||
+        (cat.isWings && !cat.isSidesDrinks) ||
+        (cat.isSeafoodDinner && !isChickenTendersOrNuggets) ||  // ✅ All seafood platters show sauces
+        isSeafoodPlatter ||  // ✅ Explicitly show sauces for seafood platters
+        isFrySide ||
+        cat.isAllDayBreakfast;
+
+      toggleSec("sec-sauces", showSauces);
+
+      document.getElementById("customizer-overlay").classList.remove("hidden");
+    }
+
+    function needsPlatterMeatChoice(nameRaw) {
+      const n = (nameRaw || "").toLowerCase();
+      return (
+        n.includes("pancakes breakfast") ||
+        n.includes("waffles breakfast") ||
+        n === "french toast" ||
+        n.includes("western omelette")
+      );
+    }
+
+    function closeCustomizer() {
+      document.getElementById("customizer-overlay").classList.add("hidden");
+    }
+
+    function toggleSec(id, show) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle("hidden", !show);
+    }
+
+    // Standard Toppings button functions
+   function selectStandardSub() {
+  const standardToppings = ['Lettuce', 'Tomato', 'Mayonnaise', 'Mustard'];
+  const toppings = document.querySelectorAll('[data-group="toppingMulti"]');
+  toppings.forEach(btn => {
+    const val = btn.getAttribute('data-val');
+    if (standardToppings.includes(val)) {
+      btn.classList.add("selected");
+    }
+  });
+}
+    // Standard Toppings button for breakfast sandwiches
+   function selectStandardBreakfast() {
+  const standardToppings = ['Lettuce', 'Tomato', 'Mayonnaise', 'Mustard'];
+  const toppings = document.querySelectorAll('[data-group="bfToppingMulti"]');
+  toppings.forEach(btn => {
+    const val = btn.getAttribute('data-val');
+    if (standardToppings.includes(val)) {
+      btn.classList.add("selected");
+    }
+  });
+}
+
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".chip");
+      if (!btn) return;
+
+      const overlay = document.getElementById("customizer-overlay");
+      if (overlay.classList.contains("hidden")) return;
+
+      const group = btn.getAttribute("data-group");
+      const isMulti = btn.getAttribute("data-multi") === "1";
+      const billable = btn.getAttribute("data-billable") === "1";
+
+      if (group === "meatChoice") {
+        document.querySelectorAll(`.chip[data-group="meatChoice"]`).forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        return;
+      }
+
+      if (billable && !group) {
+        btn.classList.toggle("selected");
+        return;
+      }
+
+      if (!group) return;
+
+      if (!isMulti) {
+        document.querySelectorAll(`.chip[data-group="${group}"]`).forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+      } else {
+        btn.classList.toggle("selected");
+      }
+    });
+
+    function addCustomizedItem() {
+      const meatSec = document.getElementById("sec-meat-choice-platters");
+      const meatRequired = meatSec && !meatSec.classList.contains("hidden");
+
+      if (meatRequired) {
+        const chosen = document.querySelector(`#customizer-overlay .chip.selected[data-group="meatChoice"]`);
+        if (!chosen) {
+          alert("Please choose a meat (Bacon, Sausage, or an upgrade).");
+          return;
+        }
+      }
+
+      const modifiers = [];
+
+      document.querySelectorAll("#customizer-overlay .chip.selected[data-billable='1']").forEach(b => {
+        const line = (b.getAttribute("data-line") || "").trim();
+        const price = parseFloat(b.getAttribute("data-price") || "0");
+        if (line && price > 0) addItemToReceipt(line, price, [], 1);
+      });
+
+      document.querySelectorAll("#customizer-overlay .chip.selected:not([data-billable='1'])").forEach(b => {
+        const val = (b.getAttribute("data-val") || "").trim();
+        if (val) modifiers.push(val);
+      });
+
+      const note = document.getElementById("cust-notes").value.trim();
+      if (note) modifiers.push(`Note: ${note}`);
+
+      addItemToReceipt(custItem.name, custItem.price, modifiers, 1);
+
+      closeCustomizer();
+      if (navigator.vibrate) navigator.vibrate(50);
+    }
+
+    // DEBUG
+    openDebugBtn.addEventListener('click', () => {
+      const pw = prompt("Admin Password:");
+      if (pw === "1003") debugPanel.classList.remove('hidden');
+    });
+    debugCloseBtn.addEventListener('click', () => debugPanel.classList.add('hidden'));
+
+    // INIT VAPI
+    (function (d, t) {
+      const g = d.createElement(t), s = d.getElementsByTagName(t)[0];
+      g.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js";
+      g.defer = true; g.async = true; s.parentNode.insertBefore(g, s);
+      g.onload = function () {
+        vapi = window.vapiSDK.run({ apiKey: VAPI_PUBLIC_KEY, assistant: VAPI_ASSISTANT_ID });
+        setupVapiEvents();
+      };
+    })(document, "script");
+  </script>
+<div id="pay-modal" class="hidden fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-6">
+  <div class="bg-white rounded-3xl p-6 w-full max-w-md text-center">
+    <div class="text-2xl font-black">Scan to Pay</div>
+    <div class="text-sm text-gray-500 font-semibold mt-1">Apple Pay • Google Pay • Card</div>
+    
+    <canvas id="pay-qr" class="mx-auto mt-6"></canvas>
+    
+    <div id="pay-status" class="mt-5 text-lg font-black">Waiting for payment…</div>
+    <div id="pay-order" class="mt-2 text-xs text-gray-400 font-mono"></div>
+    
+<button onclick="cashierOverride()" class="mt-4 w-full py-4 rounded-2xl font-black bg-yellow-400">
+  Pay at Cashier
+</button>
+
+<button onclick="cancelPaymentFlow()" class="mt-3 w-full py-4 rounded-2xl font-black bg-gray-100">
+  Cancel
+</button>
+
+  </div>
+</div>
+</body>
+</html>
