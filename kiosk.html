@@ -397,6 +397,69 @@
     let activeQrUuid = null;
     const PAYMENT_TIMEOUT_MS = 120000;
 
+function openCustomizer(itemName, price) {
+  // TEMP: until your full customizer overlay is restored
+  addToOrder(itemName, price);
+}
+
+function addToOrder(itemName, price) {
+  orderLines.push({
+    name: itemName,
+    price: Number(price) || 0,
+    qty: 1,
+    notes: ""
+  });
+  currentTotal = orderLines.reduce((sum, l) => sum + (l.price * (l.qty || 1)), 0);
+  renderOrderList();
+}
+
+function renderOrderList() {
+  const list = document.getElementById("order-list");
+  const empty = document.getElementById("empty-state");
+  const totalEl = document.getElementById("total-display");
+  const submitBtn = document.getElementById("manual-submit-btn");
+
+  if (!list || !totalEl || !submitBtn) return;
+
+  list.innerHTML = "";
+  orderLines.forEach((line, idx) => {
+    const li = document.createElement("li");
+    li.className = "bg-white border border-gray-200 rounded-2xl p-4 shadow-sm";
+    li.innerHTML = `
+      <div class="flex justify-between items-start gap-3">
+        <div class="font-extrabold text-gray-900">${line.name}</div>
+        <div class="font-black">$${(line.price * line.qty).toFixed(2)}</div>
+      </div>
+      <div class="mt-3 flex justify-between items-center">
+        <button class="px-3 py-2 rounded-xl bg-gray-100 font-black" onclick="changeQty(${idx}, -1)">−</button>
+        <div class="font-black text-lg">${line.qty}</div>
+        <button class="px-3 py-2 rounded-xl bg-gray-100 font-black" onclick="changeQty(${idx}, 1)">+</button>
+      </div>
+    `;
+    list.appendChild(li);
+  });
+
+  if (empty) empty.classList.toggle("hidden", orderLines.length > 0);
+
+  totalEl.textContent = `$${currentTotal.toFixed(2)}`;
+  submitBtn.disabled = orderLines.length === 0;
+}
+
+function changeQty(idx, delta) {
+  const line = orderLines[idx];
+  if (!line) return;
+  line.qty = Math.max(1, (line.qty || 1) + delta);
+  currentTotal = orderLines.reduce((sum, l) => sum + (l.price * (l.qty || 1)), 0);
+  renderOrderList();
+}
+
+function clearOrder() {
+  orderLines = [];
+  currentTotal = 0;
+  renderOrderList();
+}
+
+
 function activateMenuMode() {
   // show the app
   document.getElementById("landing-page")?.classList.add("hidden");
