@@ -597,6 +597,216 @@
     let timeoutTimer = null;
     let activeQrUuid = null;
     const PAYMENT_TIMEOUT_MS = 120000;
+// =======================
+// CUSTOMIZER STATE
+// =======================
+let custItemName = "";
+let custBasePrice = 0;
+let custNotes = "";
+let custSelections = {};     // single-select groups like bread/toasted/meatChoice
+let custMulti = {};          // multi-select groups like toppingMulti/sauceMulti/etc
+let custBillables = [];      // add-ons with price impact
+
+function $(id){ return document.getElementById(id); }
+
+function openCustomizer(itemName, price) {
+  // Save base item
+  custItemName = itemName;
+  custBasePrice = Number(price) || 0;
+
+  // Reset state
+  custNotes = "";
+  custSelections = {};
+  custMulti = {};
+  custBillables = [];
+
+  // Reset UI chips + notes
+  resetAllChips();
+  if ($("cust-notes")) $("cust-notes").value = "";
+
+  // Fill header
+  $("cust-item-name").textContent = custItemName;
+  $("cust-item-price").textContent = `$${custBasePrice.toFixed(2)}`;
+
+  // Show/hide sections based on item
+  hideAllCustomizerSections();
+  showSectionsForItem(custItemName);
+
+  // Wire chip clicks (safe to call every time)
+  bindChipClickHandlers();
+
+  // Show overlay
+  $("customizer-overlay").classList.remove("hidden");
+}
+
+function closeCustomizer() {
+  $("customizer-overlay").classList.add("hidden");
+}
+
+// Hide all conditional sections
+function hideAllCustomizerSections() {
+  const ids = [
+    "sec-breakfast-toppings",
+    "sec-sub-toppings",
+    "sec-bread",
+    "sec-toasted",
+    "sec-eggs-sandwich",
+    "sec-meat-choice-platters",
+    "sec-bread-upsell",
+    "sec-extra-meat-breakfast",
+    "sec-extra-meat-lunch",
+    "sec-seafood-bread",
+    "sec-sauces",
+    "sec-reuben-note"
+  ];
+  ids.forEach(id => $(id)?.classList.add("hidden"));
+}
+
+// Decide what sections to show for each item
+function showSectionsForItem(name) {
+  const n = name.toLowerCase();
+
+  const isBreakfastSandwich =
+    n.includes("sandwich") && (n.includes("egg") || n.includes("blt") || n.includes("croissant") || n.includes("sub"));
+
+  const isBreakfastPlatter =
+    n.includes("platter") || n.includes("pancakes") || n.includes("waffles") || n.includes("french toast") || n.includes("omelette");
+
+  const isSubOrSandwich =
+    n.includes("sub") || n.includes("reuben") || n.includes("bleaker") || n.includes("bulgogi steak") || n.includes("cold cut") || n.includes("turkey blt");
+
+  const isSeafoodDinner =
+    n.includes("platter") && (n.includes("whiting") || n.includes("croaker") || n.includes("tilapia") || n.includes("flounder") || n.includes("shrimp") || n.includes("combo seafood") || n.includes("crab stick"));
+
+  // Breakfast Sandwich flow
+  if (isBreakfastSandwich && !isBreakfastPlatter) {
+    $("sec-bread")?.classList.remove("hidden");
+    $("sec-toasted")?.classList.remove("hidden");
+    $("sec-eggs-sandwich")?.classList.remove("hidden");
+    $("sec-breakfast-toppings")?.classList.remove("hidden");
+    $("sec-extra-meat-breakfast")?.classList.remove("hidden");
+  }
+
+  // Subs/Sandwiches toppings + sauces
+  if (isSubOrSandwich) {
+    $("sec-sub-toppings")?.classList.remove("hidden");
+    $("sec-sauces")?.classList.remove("hidden");
+    $("sec-extra-meat-lunch")?.classList.remove("hidden");
+  }
+
+  // Reuben note
+  if (n.includes("reuben")) {
+    $("sec-reuben-note")?.classList.remove("hidden");
+  }
+
+  // Breakfast platters: require meat choice for certain items
+  if (isBreakfastPlatter) {
+    // Only require meat if user tapped generic breakfast item where meat isn't in the name
+    const alreadyHasMeat =
+      n.includes("bacon") || n.includes("sausage") || n.includes("ham") || n.includes("scrapple") || n.includes("beef bacon") || n.includes("turkey");
+
+    if (!alreadyHasMeat) {
+      $("sec-meat-choice-platters")?.classList.remove("hidden");
+    }
+    $("sec-bread-upsell")?.classList.remove("hidden");
+    $("sec-sauces")?.classList.remove("hidden");
+  }
+
+  // Seafood bread upsell
+  if (isSeafoodDinner) {
+    $("sec-seafood-bread")?.classList.remove("hidden");
+    $("sec-sauces")?.classList.remove("hidden");
+  }
+}
+
+// Chip handling
+function bindChipClickHandlers() {
+  // Chips in the overlay only
+  const overlay = $("customizer-overlay");
+  if (!overlay) return;
+
+  overlay.querySelectorAll(".chip").forEach(btn => {
+    // Avoid double-binding
+    if (btn.dataset.bound === "1") return;
+    btn.dataset.bound = "1";
+
+    btn.addEventListener("click", () => {
+      // Billable chips (add-ons)
+      if (btn.dataset.billable === "1") {
+        toggleBillable(btn);
+        return;
+      }
+
+      // Multi-select chips
+      if (btn.dataset.multi === "1") {
+        toggleMulti(btn);
+        return;
+      }
+
+      // Single-select group chips
+      const group = btn.dataset.group;
+      const val = btn.dataset.val;
+      if (group && val) {
+        selectSingle(group, val, btn);
+      }
+    });
+  });
+}
+
+function selectSingle(group, val, btnEl) {
+  custSelections[group] = val;
+
+  // clear selected class from same group
+  const overlay = $("customizer-overlay");
+  overlay.querySelectorAll(`.chip[data-group="${group}"]`).forEach(b => b.classList.remove("selected"));
+  btnEl.classList.add("selected");
+}
+
+function toggleMulti(btnEl) {
+  const group = btnEl.dataset.group;
+  const val = btnEl.dataset.val;
+  if (!group || !val) return;
+
+  if (!custMulti[group]) custMulti[group] = new Set();
+
+  if (custMulti[group].has(val)) {
+    custMulti[group].delete(val);
+    btnEl.classList.remove("selected");
+  } else {
+    custMulti[group].add(val);
+    btnEl.classList.add("selected");
+  }
+}
+
+function toggleBillable(btnEl) {
+  const line = btnEl.dataset.line || btnEl.textContent.trim();
+  const price = Number(btnEl.dataset.price || 0);
+
+  const idx = custBillables.findIndex(x => x.line === line);
+  if (idx >= 0) {
+    custBillables.splice(idx, 1);
+    btnEl.classList.remove("selected");
+  } else {
+    custBillables.push({ line, price });
+    btnEl.classList.add("selected");
+  }
+}
+
+function resetAllChips() {
+  const overlay = $("customizer-overlay");
+  if (!overlay) return;
+  overlay.querySelectorAll(".chip").forEach(b => {
+    b.classList.remove("selected");
+    // keep highlight style; highlight is separate class
+  });
+}
+
+// Quick presets
+function selectStandardSub() {
+  // Typical deli defaults
+  const standard = ["Lettuce", "Tomato", "Onion", "Mayonnaise"];
+  const overlay = $("customizer-o
+
 
 function openCustomizer(itemName, price) {
   // TEMP: until your full customizer overlay is restored
@@ -623,20 +833,32 @@ function renderOrderList() {
   if (!list || !totalEl || !submitBtn) return;
 
   list.innerHTML = "";
+
   orderLines.forEach((line, idx) => {
     const li = document.createElement("li");
     li.className = "bg-white border border-gray-200 rounded-2xl p-4 shadow-sm";
+
+    const mods = Array.isArray(line.modifiers) && line.modifiers.length
+      ? `<div class="mt-2 text-xs text-gray-600 space-y-1">
+           ${line.modifiers.map(m => `<div>• ${escapeHtml(m)}</div>`).join("")}
+         </div>`
+      : "";
+
     li.innerHTML = `
       <div class="flex justify-between items-start gap-3">
-        <div class="font-extrabold text-gray-900">${line.name}</div>
-        <div class="font-black">$${(line.price * line.qty).toFixed(2)}</div>
+        <div class="font-extrabold text-gray-900">${escapeHtml(line.name)}</div>
+        <div class="font-black">$${((line.price || 0) * (line.qty || 1)).toFixed(2)}</div>
       </div>
+      ${mods}
       <div class="mt-3 flex justify-between items-center">
         <button class="px-3 py-2 rounded-xl bg-gray-100 font-black" onclick="changeQty(${idx}, -1)">−</button>
-        <div class="font-black text-lg">${line.qty}</div>
+        <div class="font-black text-lg">${line.qty || 1}</div>
         <button class="px-3 py-2 rounded-xl bg-gray-100 font-black" onclick="changeQty(${idx}, 1)">+</button>
       </div>
+      <button class="mt-3 w-full py-2 rounded-xl bg-red-50 text-red-700 font-black"
+              onclick="removeLine(${idx})">Remove</button>
     `;
+
     list.appendChild(li);
   });
 
@@ -646,17 +868,35 @@ function renderOrderList() {
   submitBtn.disabled = orderLines.length === 0;
 }
 
+// Prevent HTML injection in notes/modifiers
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function removeLine(idx){
+  orderLines.splice(idx, 1);
+  recalcTotal();
+  renderOrderList();
+}
+
+
 function changeQty(idx, delta) {
   const line = orderLines[idx];
   if (!line) return;
   line.qty = Math.max(1, (line.qty || 1) + delta);
-  currentTotal = orderLines.reduce((sum, l) => sum + (l.price * (l.qty || 1)), 0);
+  recalcTotal();
   renderOrderList();
 }
 
+
 function clearOrder() {
   orderLines = [];
-  currentTotal = 0;
+  recalcTotal();
   renderOrderList();
 }
 
