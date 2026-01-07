@@ -338,10 +338,211 @@
     </section>
   </div>
 
-  <!-- CUSTOMIZER OVERLAY -->
+  <!-- =======================
+       CUSTOMIZER OVERLAY
+  ======================== -->
   <div id="customizer-overlay" class="hidden fixed inset-0 z-[200] bg-black/50">
-    <!-- Your customizer content stays the same -->
+    <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl p-5 max-h-[85vh] overflow-y-auto kiosk-scroll">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div id="cust-item-name" class="text-xl font-black text-gray-900"></div>
+          <div id="cust-item-price" class="text-sm text-gray-500 font-bold mt-1"></div>
+        </div>
+        <button onclick="closeCustomizer()" class="text-gray-500 font-bold px-3 py-2 rounded-lg hover:bg-gray-100">✕</button>
+      </div>
+
+      <div class="mt-4 space-y-5">
+
+
+        <!-- FREE TOPPINGS FOR BREAKFAST SANDWICHES (NEW) -->
+        <div id="sec-breakfast-toppings" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Free Toppings</div>
+          <div class="grid grid-cols-2 gap-2 mb-3">
+            <button class="chip highlight" onclick="selectStandardBreakfast()">Standard Toppings</button>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button class="chip" data-group="bfToppingMulti" data-val="Lettuce" data-multi="1">Lettuce</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Tomato" data-multi="1">Tomato</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Onion" data-multi="1">Onion</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Hot Peppers" data-multi="1">Hot Peppers</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Mayonnaise" data-multi="1">Mayonnaise</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Ketchup" data-multi="1">Ketchup</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Mustard" data-multi="1">Mustard</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Honey Mustard" data-multi="1">Honey Mustard</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Fried Onion" data-multi="1">Fried Onion</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="American Cheese" data-multi="1">American Cheese</button>
+            <button class="chip" data-group="bfToppingMulti" data-val="Provolone Cheese" data-multi="1">Provolone Cheese</button>
+          </div>
+        </div>
+
+        <!-- FREE TOPPINGS FOR SUBS (NEW) -->
+        <div id="sec-sub-toppings" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Free Toppings</div>
+          <div class="grid grid-cols-2 gap-2 mb-3">
+            <button class="chip highlight" onclick="selectStandardSub()">Standard Toppings</button>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button class="chip" data-group="toppingMulti" data-val="Lettuce" data-multi="1">Lettuce</button>
+            <button class="chip" data-group="toppingMulti" data-val="Tomato" data-multi="1">Tomato</button>
+            <button class="chip" data-group="toppingMulti" data-val="Onion" data-multi="1">Onion</button>
+            <button class="chip" data-group="toppingMulti" data-val="Hot Peppers" data-multi="1">Hot Peppers</button>
+            <button class="chip" data-group="toppingMulti" data-val="Mayonnaise" data-multi="1">Mayonnaise</button>
+            <button class="chip" data-group="toppingMulti" data-val="Ketchup" data-multi="1">Ketchup</button>
+            <button class="chip" data-group="toppingMulti" data-val="Mustard" data-multi="1">Mustard</button>
+            <button class="chip" data-group="toppingMulti" data-val="Honey Mustard" data-multi="1">Honey Mustard</button>
+            <button class="chip" data-group="toppingMulti" data-val="Fried Onion" data-multi="1">Fried Onion</button>
+            <button class="chip" data-group="toppingMulti" data-val="American Cheese" data-multi="1">American Cheese</button>
+            <button class="chip" data-group="toppingMulti" data-val="Provolone Cheese" data-multi="1">Provolone Cheese</button>
+          </div>
+        </div>
+
+        <!-- Breakfast Sandwich Bread (no charge) -->
+        <div id="sec-bread" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Bread</div>
+          <div class="grid grid-cols-3 gap-2">
+            <button class="chip" data-group="bread" data-val="White Bread">White</button>
+            <button class="chip" data-group="bread" data-val="Wheat Bread">Wheat</button>
+            <button class="chip" data-group="bread" data-val="No Bread">No Bread</button>
+          </div>
+        </div>
+
+        <!-- Toasted / Not Toasted -->
+        <div id="sec-toasted" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Toasted</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-group="toasted" data-val="Toasted">Toasted</button>
+            <button class="chip" data-group="toasted" data-val="Not Toasted">Not Toasted</button>
+          </div>
+        </div>
+
+        <!-- Breakfast Sandwich Egg Options -->
+        <div id="sec-eggs-sandwich" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Eggs</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-billable="1" data-line="Extra Eggs" data-price="3.00">Extra Eggs +$3</button>
+            <button class="chip" data-group="eggOption" data-val="No Eggs">No eggs</button>
+            <button class="chip highlight" data-group="eggOption" data-val="Fried Hard">Fried hard</button>
+          </div>
+        </div>
+
+        <!-- Breakfast Platter Meat Choice -->
+        <div id="sec-meat-choice-platters" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">
+            Choice of Meat <span class="text-red-600">(Required)</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip highlight" data-group="meatChoice" data-val="Meat: Bacon">Bacon</button>
+            <button class="chip highlight" data-group="meatChoice" data-val="Meat: Sausage">Sausage</button>
+            <button class="chip" data-group="meatChoice" data-val="Meat: Turkey Bacon" data-billable="1" data-line="Meat Upgrade: Turkey Bacon" data-price="1.00">Turkey Bacon +$1</button>
+            <button class="chip" data-group="meatChoice" data-val="Meat: Turkey Sausage" data-billable="1" data-line="Meat Upgrade: Turkey Sausage" data-price="1.00">Turkey Sausage +$1</button>
+            <button class="chip" data-group="meatChoice" data-val="Meat: Ham" data-billable="1" data-line="Meat Upgrade: Ham" data-price="1.00">Ham +$1</button>
+            <button class="chip" data-group="meatChoice" data-val="Meat: Scrapple" data-billable="1" data-line="Meat Upgrade: Scrapple" data-price="1.00">Scrapple +$1</button>
+            <button class="chip" data-group="meatChoice" data-val="Meat: Beef Bacon" data-billable="1" data-line="Meat Upgrade: Beef Bacon" data-price="2.00">Beef Bacon +$2</button>
+          </div>
+        </div>
+
+        <!-- All Day Breakfast: Bread Upsell -->
+        <div id="sec-bread-upsell" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Add Bread ($2)</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-billable="1" data-line="White Toast" data-price="2.00">White +$2</button>
+            <button class="chip" data-billable="1" data-line="Wheat Toast" data-price="2.00">Wheat +$2</button>
+          </div>
+          <div class="mt-3 font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Toasted</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-group="toastedPlatter" data-val="Toasted">Toasted</button>
+            <button class="chip" data-group="toastedPlatter" data-val="Not Toasted">Not Toasted</button>
+          </div>
+          <div class="mt-3 font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Butter / Jelly</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-group="spreadMulti" data-val="Butter" data-multi="1">Butter</button>
+            <button class="chip" data-group="spreadMulti" data-val="Jelly" data-multi="1">Jelly</button>
+          </div>
+        </div>
+
+        <!-- Extra Meat (Breakfast) -->
+        <div id="sec-extra-meat-breakfast" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Extra Meat</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-billable="1" data-line="Extra Bacon" data-price="3.00">Bacon +$3</button>
+            <button class="chip" data-billable="1" data-line="Extra Sausage" data-price="3.00">Sausage +$3</button>
+            <button class="chip" data-billable="1" data-line="Extra Bologna" data-price="4.00">Bologna +$4</button>
+            <button class="chip" data-billable="1" data-line="Extra Turkey Bacon" data-price="4.00">Turkey Bacon +$4</button>
+            <button class="chip" data-billable="1" data-line="Extra Turkey Sausage" data-price="4.00">Turkey Sausage +$4</button>
+            <button class="chip" data-billable="1" data-line="Extra Beef Bacon" data-price="5.00">Beef Bacon +$5</button>
+            <button class="chip" data-billable="1" data-line="Extra Scrapple" data-price="4.00">Scrapple +$4</button>
+            <button class="chip" data-billable="1" data-line="Extra Ham" data-price="4.00">Ham +$4</button>
+          </div>
+        </div>
+
+        <!-- Extra Meat (Lunch) -->
+        <div id="sec-extra-meat-lunch" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Extra Meat</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-billable="1" data-line="Extra Meat" data-price="5.00">Extra Meat +$5</button>
+          </div>
+        </div>
+
+
+        <!-- SEAFOOD PLATTER BREAD UPSELL -->
+        <div id="sec-seafood-bread" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Add Bread ($2)</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-billable="1" data-line="White Bread" data-price="2.00">White Bread +$2</button>
+            <button class="chip" data-billable="1" data-line="Wheat Bread" data-price="2.00">Wheat Bread +$2</button>
+          </div>
+        </div>
+
+        <!-- Sauces & Sides -->
+        <div id="sec-sauces" class="hidden">
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Sauces & Sides</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="chip" data-group="sauceMulti" data-val="Ketchup on Side" data-multi="1">Ketchup on side</button>
+            <button class="chip" data-group="sauceMulti" data-val="Mumbo on Side" data-multi="1">Mumbo on side</button>
+            <button class="chip" data-group="sauceMulti" data-val="Hot Sauce" data-multi="1">Hot sauce</button>
+            <button class="chip" data-group="sauceMulti" data-val="No Sauce" data-multi="1">No sauce</button>
+            <button class="chip" data-group="sauceMulti" data-val="Salt & Pepper on Fries" data-multi="1">Salt & pepper on fries</button>
+            <button class="chip" data-group="sauceMulti" data-val="Mumbo on Fries" data-multi="1">Mumbo on fries</button>
+            <button class="chip" data-group="sauceMulti" data-val="Sauce on Side" data-multi="1">Sauce on side</button>
+            <button class="chip highlight" data-group="sauceMulti" data-val="Fried Hard" data-multi="1">Fried hard</button>
+          </div>
+        </div>
+
+
+        <!-- REUBEN DESCRIPTION -->
+        <div id="sec-reuben-note" class="hidden">
+          <div class="bg-yellow-50 border-2 border-yellow-400 rounded-xl p-4">
+            <div class="font-black text-gray-800 text-sm mb-2">📝 THE REUBEN</div>
+            <div class="text-xs text-gray-700 leading-relaxed">
+              Made with <span class="font-bold">corned beef</span>, <span class="font-bold">sauerkraut</span>, and <span class="font-bold">thousand island dressing</span> on <span class="font-bold">rye bread</span>.
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div>
+          <div class="font-black text-gray-800 uppercase text-xs tracking-widest mb-2">Notes</div>
+          <input id="cust-notes" type="text" inputmode="text" autocapitalize="sentences" autocomplete="off" placeholder="e.g., grape jelly, light salt, etc." class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-red-200" />
+        </div>
+
+      </div>
+
+      <div class="mt-5 flex gap-3">
+  <button onclick="closeCustomizer()"
+          class="w-1/3 py-4 rounded-2xl font-black bg-gray-100 text-gray-700 hover:bg-gray-200">
+    CANCEL
+  </button>
+
+  <button onclick="addCustomizedItem()"
+          class="w-2/3 py-4 rounded-2xl font-black bg-green-600 text-white hover:bg-green-700">
+    ADD ITEM
+  </button>
+</div>
+
+    </div>
   </div>
+
+
 
   <!-- QR PAYMENT MODAL -->
   <div id="pay-modal" class="hidden fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-6">
