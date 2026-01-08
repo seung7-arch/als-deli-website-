@@ -42,7 +42,9 @@ exports.handler = async (event) => {
     try {
       // Extract metadata
       const metadata = paymentIntent.metadata || {};
-      const customerName = metadata.customer_name || 'Guest';
+const customerName = metadata.guest_name || metadata.customer_name || 'Guest';
+const orderSource = metadata.source || 'WEB';
+const orderSummary = metadata.order_summary || '';
       const customerPhone = metadata.customer_phone || '';
       const items = metadata.items || '[]';
       const confirmationNumber = metadata.confirmation_number || '';
@@ -70,7 +72,8 @@ exports.handler = async (event) => {
           customer_phone: customerPhone,
           items: items,
           total: paymentIntent.amount_received / 100, // Convert cents to dollars
-          order_source: 'WEB',
+          order_source: orderSource,
+order_summary: orderSummary,
           paid: true,
           confirmation_number: confirmationNumber,
           payment_intent_id: paymentIntent.id,
