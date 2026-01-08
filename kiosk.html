@@ -1001,19 +1001,19 @@ function showPayModal(url, qrUuid) {
 
 
 async function pollPaymentStatus(qrUuid) {
-  // If user canceled / switched sessions, ignore
   if (activeQrUuid !== qrUuid) return;
 
   try {
-    const res = await fetch(`/.netlify/functions/order-status?qr_uuid=${encodeURIComponent(qrUuid)}`);
+    const res = await fetch(`/.netlify/functions/order-status?payment_intent_id=${encodeURIComponent(qrUuid)}`);
     const data = await res.json();
 
     if (activeQrUuid !== qrUuid) return;
-const s = String(data.status || "").toLowerCase();
-if (s === "paid") finalizeAfterPaid(qrUuid);
 
-      } catch (e) {
-    // ignore poll errors
+    if (data.status === "paid" || data.paid === true) {
+      finalizeAfterPaid(qrUuid);
+    }
+  } catch (e) {
+    console.error('Poll error:', e);
   }
 }
 
