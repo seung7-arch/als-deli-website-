@@ -949,23 +949,34 @@ async function submitOrderManually() {
       })
     });
 
-    const data = await res.json();
-    const { checkout_url, qr_uuid } = data;
+ const data = await res.json();
+const { checkout_url, session_id, qr_uuid } = data;
 
-    if (!checkout_url || !qr_uuid) {
-      throw new Error("Missing checkout_url or qr_uuid from create-checkout-session");
-    }
+if (!checkout_url || !session_id) {
+  throw new Error("Missing checkout_url or session_id from create-checkout-session");
+}
 
-    activeQrUuid = qr_uuid;
+// Keep showing something human-readable.
+// Prefer qr_uuid if you like it as the “confirmation shown to customer”.
+activeQrUuid = qr_uuid || session_id;
 
-    // UI
-    document.getElementById("pay-status").textContent = "Waiting for payment…";
-    showPayModal(checkout_url, qr_uuid);
+// UI
+document.getElementById("pay-status").textContent = "Waiting for payment…";
+showPayModal(checkout_url, activeQrUuid);
 
-    // Start polling + timeout
-    clearPaymentTimers();
+// Start polling + timeout
+clearPaymentTimers();
 
-    pollTimer = setInterval(() => pollPaymentStatus(qr_uuid), 1500);
+pollTimer = setInterval(() => pollPaymentStatus({ session_id, qr_uuid: activeQrUuid }), 1500);
+
+timeoutTimer = setTimeout(() => {
+  if (activeQrUuid !== (qr_uuid || session_id)) return;
+  document.getElementById("pay-status").textContent = "Session expired ⏱️";
+  cancelPaymentFlow();
+}, PAYMENT_TIMEOUT_MS);
+
+manualSubmitBtn.textContent = "AWAITING PAYMENT…";
+
 
     timeoutTimer = setTimeout(() => {
       // Only timeout the currently active session
@@ -1000,23 +1011,24 @@ function showPayModal(url, qrUuid) {
 }
 
 
-async function pollPaymentStatus(qrUuid) {
-  if (activeQrUuid !== qrUuid) return;
+async function pollPaymentStatus({ session_id, qr_uuid }) {
+  // qr_uuid is just the label we display; activeQrUuid tracks that label
+  if (activeQrUuid !== (qr_uuid || session_id)) return;
 
   try {
-    const res = await fetch(`/.netlify/functions/order-status?qr_uuid=${encodeURIComponent(qrUuid)}`);
+    const res = await fetch(`/.netlify/functions/order-status?session_id=${encodeURIComponent(session_id)}`);
     const data = await res.json();
 
-    // still same session?
-    if (activeQrUuid !== qrUuid) return;
+    if (activeQrUuid !== (qr_uuid || session_id)) return;
 
     if (data.status === "paid" || data.paid === true) {
-      finalizeAfterPaid(qrUuid);
+      finalizeAfterPaid(qr_uuid || session_id);
     }
   } catch (e) {
     console.error("Poll error:", e);
   }
 }
+
 
 function finalizeAfterPaid(qrUuid) {
   if (activeQrUuid !== qrUuid) return;
