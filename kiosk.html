@@ -1004,21 +1004,18 @@ async function pollPaymentStatus(qrUuid) {
   if (activeQrUuid !== qrUuid) return;
 
   try {
-    const res = await fetch(`/.netlify/functions/order-status?payment_intent_id=${encodeURIComponent(qrUuid)}`);
+    const res = await fetch(`/.netlify/functions/order-status?qr_uuid=${encodeURIComponent(qrUuid)}`);
     const data = await res.json();
 
+    // still same session?
     if (activeQrUuid !== qrUuid) return;
 
     if (data.status === "paid" || data.paid === true) {
       finalizeAfterPaid(qrUuid);
     }
   } catch (e) {
-    console.error('Poll error:', e);
+    console.error("Poll error:", e);
   }
-	if (data.status === "paid" || data.paid === true) {
-  finalizeAfterPaid(qrUuid);
-}
-
 }
 
 function finalizeAfterPaid(qrUuid) {
