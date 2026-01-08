@@ -7,64 +7,56 @@ const supabase = createClient(
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+    return { 
+      statusCode: 405,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ error: 'Method Not Allowed' })
+    };
   }
 
-  const { qr_uuid } = JSON.parse(event.body);
+  const { qr_uuid, items, total, guest_name } = JSON.parse(event.body);
 
   if (!qr_uuid) {
     return {
       statusCode: 400,
+      headers: { 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({ error: 'qr_uuid required' })
     };
   }
 
   try {
-    // Get the ticket data first
-    const { data: ticket, error: fetchError } = await supabase
-      .from('tickets')
-      .select('*')
-      .eq('qr_uuid', qr_uuid)
+    // Insert order as unpaid
+    const { data: order, error: insertError } = await supabase
+      .from('orders')
+      .insert({
+        customer_name: guest_name || 'Walk-In',
+        items: JSON.stringify(items),
+        total: total,
+        status: 'pending',
+        order_source: 'Kiosk 1',
+        paid: false,
+        acknowledged: false,
+        pickup_time: 'ASAP',
+        order_summary: items.map(item => {
+          const modText = item.modifiers && item.modifiers.length > 0 ? ` (${item.modifiers.join(', ')})` : '';
+          const qtyText = item.quantity > 1 ? ` x${item.quantity}` : '';
+          return `${item.name}${qtyText}${modText}`;
+        }).join('\n'),
+        notes: '💰 PAY AT CASHIER',
+        created_at: new Date().toISOString()
+      })
+      .select()
       .single();
 
-    if (fetchError || !ticket) {
-      throw new Error('Ticket not found');
-    }
-
-    // Update ticket to mark as "pay at counter"
-    const { error: updateError } = await supabase
-      .from('tickets')
-      .update({
-        status: 'cashier_pending',
-        updated_at: new Date().toISOString()
-      })
-      .eq('qr_uuid', qr_uuid);
-
-    if (updateError) throw updateError;
-
-    // Send to KDS as UNPAID order
-    const makeWebhookUrl = 'https://hook.us2.make.com/xaqgz1i35i8al312nkm76to5actknvkc';
-    
-    await fetch(makeWebhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        qr_uuid: qr_uuid,
-        customer_name: ticket.guest_name || 'Walk-In',
-        items: ticket.items || [],
-        total: ticket.total || 0,
-        source: 'kiosk',
-        payment_status: 'cashier_pending',
-        order_summary: generateOrderSummary(ticket.items || [])
-      })
-    });
+    if (insertError) throw insertError;
 
     return {
       statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({ 
         success: true,
-        message: 'Order sent to cashier'
+        message: 'Order sent to cashier',
+        order_id: order.id
       })
     };
 
@@ -77,13 +69,3 @@ exports.handler = async (event) => {
     };
   }
 };
-
-function generateOrderSummary(items) {
-  return items.map(item => {
-    const modText = item.modifiers && item.modifiers.length > 0 
-      ? ` (${item.modifiers.join(', ')})` 
-      : '';
-    const qtyText = item.quantity > 1 ? ` x${item.quantity}` : '';
-    return `- ${item.name}${qtyText}${modText} ($${(item.price * item.quantity).toFixed(2)})`;
-  }).join('\n');
-}
