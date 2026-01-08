@@ -66,31 +66,7 @@ exports.handler = async (event) => {
       cancel_url: `${event.headers.origin || 'https://alscarryout.com'}/cancelled?order_id=${qr_uuid}`
     });
 
-    // Store pending order in Supabase
-   const { error: dbError } = await supabase
-  .from('orders')
-  .insert({
-    customer_name: guest_name || 'Walk-In',
-    items: JSON.stringify(items),
-    total: total.toFixed(2),
-    status: 'pending',
-    order_source: 'Kiosk 1',
-    payment_intent_id: session.payment_intent,
-    paid: false,
-    acknowledged: false,
-    pickup_time: 'ASAP',
-    order_summary: items.map(item => {
-      const modText = item.modifiers && item.modifiers.length > 0 ? ` (${item.modifiers.join(', ')})` : '';
-      const qtyText = item.quantity > 1 ? ` x${item.quantity}` : '';
-      return `${item.name}${qtyText}${modText}`;
-    }).join('\n'),
-    created_at: new Date().toISOString()
-  });
-
-    if (dbError) {
-      console.error('Database error:', dbError);
-      // Continue anyway - webhook will handle it
-    }
+  
 
     return {
       statusCode: 200,
