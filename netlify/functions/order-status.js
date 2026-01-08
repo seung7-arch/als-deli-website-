@@ -1,4 +1,4 @@
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -6,64 +6,47 @@ const supabase = createClient(
 );
 
 exports.handler = async (event) => {
-  // CORS (safe even if same-origin)
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "GET,OPTIONS",
-  };
+  const paymentIntentId = event.queryStringParameters?.payment_intent_id;
 
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers, body: "" };
-  }
-
-  const qrUuid = event.queryStringParameters?.qr_uuid;
-  if (!qrUuid) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: "qr_uuid required" }) };
+  if (!paymentIntentId) {
+    return {
+      statusCode: 400,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ error: 'payment_intent_id required' })
+    };
   }
 
   try {
     const { data, error } = await supabase
-  .from('orders')
-  .select('paid, status')
-  .eq('payment_intent_id', qrUuid)
-  .single();
+      .from('orders')
+      .select('paid, status, id')
+      .eq('payment_intent_id', paymentIntentId)
+      .single();
 
-if (error || !data) {
-  return {
-    statusCode: 200,
-    headers: { 'Access-Control-Allow-Origin': '*' },
-    body: JSON.stringify({ status: 'pending' })
-  };
-}
-
-return {
-  statusCode: 200,
-  headers: { 'Access-Control-Allow-Origin': '*' },
-  body: JSON.stringify({ 
-    status: data.paid ? 'paid' : 'pending',
-    qr_uuid: qrUuid
-  })
-};
-
-    // Not found -> pending
     if (error || !data) {
-      return { statusCode: 200, headers, body: JSON.stringify({ status: "pending" }) };
+      return {
+        statusCode: 200,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ status: 'pending', paid: false })
+      };
     }
-
-    // Normalize status so kiosk comparisons are reliable
-    const status = String(data.status || "pending").toLowerCase();
 
     return {
       statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        status,                         // "pending" | "paid" | "cashier" | etc (lowercase)
-        order_number: data.order_number || null,
-        source: data.source || null,
-      }),
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ 
+        status: data.paid ? 'paid' : 'pending',
+        paid: data.paid,
+        order_id: data.id
+      })
     };
-  } catch (err) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
+
+  } catch (error) {
+    console.error('Order status error:', error);
+    return {
+      statusCode: 500,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ error: error.message })
+    };
   }
 };
