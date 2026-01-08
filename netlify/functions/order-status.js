@@ -7,7 +7,6 @@ const supabase = createClient(
 
 exports.handler = async (event) => {
   const qrUuid = event.queryStringParameters?.qr_uuid;
-
   if (!qrUuid) {
     return { statusCode: 400, body: JSON.stringify({ error: "qr_uuid required" }) };
   }
@@ -19,7 +18,6 @@ exports.handler = async (event) => {
       .eq("confirmation_number", qrUuid)
       .single();
 
-    // If not found yet, treat as pending
     if (error || !data) {
       return {
         statusCode: 200,
@@ -28,16 +26,14 @@ exports.handler = async (event) => {
       };
     }
 
-    // Normalize to what kiosk expects
-    const status = data.paid || String(data.status || "").toUpperCase() === "PAID"
-      ? "paid"
-      : "pending";
+    const isPaid =
+      data.paid === true || String(data.status || "").toUpperCase() === "PAID";
 
     return {
       statusCode: 200,
       headers: { "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
-        status,
+        status: isPaid ? "paid" : "pending",
         confirmation_number: data.confirmation_number,
         order_source: data.order_source,
       }),
