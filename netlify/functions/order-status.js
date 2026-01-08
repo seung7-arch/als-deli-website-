@@ -24,10 +24,27 @@ exports.handler = async (event) => {
 
   try {
     const { data, error } = await supabase
-      .from("tickets")
-      .select("status, order_number, source")
-      .eq("qr_uuid", qrUuid)
-      .maybeSingle();
+  .from('orders')
+  .select('paid, status')
+  .eq('payment_intent_id', qrUuid)
+  .single();
+
+if (error || !data) {
+  return {
+    statusCode: 200,
+    headers: { 'Access-Control-Allow-Origin': '*' },
+    body: JSON.stringify({ status: 'pending' })
+  };
+}
+
+return {
+  statusCode: 200,
+  headers: { 'Access-Control-Allow-Origin': '*' },
+  body: JSON.stringify({ 
+    status: data.paid ? 'paid' : 'pending',
+    qr_uuid: qrUuid
+  })
+};
 
     // Not found -> pending
     if (error || !data) {
