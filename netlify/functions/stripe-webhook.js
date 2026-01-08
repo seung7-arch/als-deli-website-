@@ -47,7 +47,7 @@ const orderSource = metadata.source || 'WEB';
 const orderSummary = metadata.order_summary || '';
       const customerPhone = metadata.customer_phone || '';
       const items = metadata.items || '[]';
-      const confirmationNumber = metadata.confirmation_number || '';
+      const confirmationNumber = metadata.confirmation_number || `K${Date.now().toString().slice(-6)}`;
       const pickupTime = metadata.pickup_time || 'ASAP';
       const specialInstructions = metadata.special_instructions || '';
       
