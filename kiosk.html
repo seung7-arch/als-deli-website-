@@ -1062,7 +1062,12 @@ async function cashierOverride() {
     const res = await fetch("/.netlify/functions/mark-cashier", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ qr_uuid: activeQrUuid })
+      body: JSON.stringify({ 
+        qr_uuid: activeQrUuid,
+        items: orderLines,
+        total: currentTotal.toFixed(2),
+        guest_name: `Walk-In #${walkInCount}`
+      })
     });
 
     const data = await res.json();
