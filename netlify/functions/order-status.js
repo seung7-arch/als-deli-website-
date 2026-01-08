@@ -1,4 +1,4 @@
-const { createClient } = require('@supabase/supabase-js');
+const { createClient } = require("@supabase/supabase-js");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -6,47 +6,47 @@ const supabase = createClient(
 );
 
 exports.handler = async (event) => {
-  const paymentIntentId = event.queryStringParameters?.payment_intent_id;
+  const qrUuid = event.queryStringParameters?.qr_uuid;
 
-  if (!paymentIntentId) {
-    return {
-      statusCode: 400,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: 'payment_intent_id required' })
-    };
+  if (!qrUuid) {
+    return { statusCode: 400, body: JSON.stringify({ error: "qr_uuid required" }) };
   }
 
   try {
     const { data, error } = await supabase
-      .from('orders')
-      .select('paid, status, id')
-      .eq('payment_intent_id', paymentIntentId)
+      .from("orders")
+      .select("paid,status,confirmation_number,order_source")
+      .eq("confirmation_number", qrUuid)
       .single();
 
+    // If not found yet, treat as pending
     if (error || !data) {
       return {
         statusCode: 200,
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ status: 'pending', paid: false })
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ status: "pending" }),
       };
     }
 
+    // Normalize to what kiosk expects
+    const status = data.paid || String(data.status || "").toUpperCase() === "PAID"
+      ? "paid"
+      : "pending";
+
     return {
       statusCode: 200,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ 
-        status: data.paid ? 'paid' : 'pending',
-        paid: data.paid,
-        order_id: data.id
-      })
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({
+        status,
+        confirmation_number: data.confirmation_number,
+        order_source: data.order_source,
+      }),
     };
-
-  } catch (error) {
-    console.error('Order status error:', error);
+  } catch (e) {
     return {
       statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: error.message })
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ error: e.message }),
     };
   }
 };
