@@ -1015,33 +1015,48 @@ async function pollPaymentStatus(qrUuid) {
   } catch (e) {
     console.error('Poll error:', e);
   }
+	if (data.status === "paid" || data.paid === true) {
+  finalizeAfterPaid(qrUuid);
 }
 
-async function finalizeAfterPaid(qrUuid) {
+}
+
+function finalizeAfterPaid(qrUuid) {
   if (activeQrUuid !== qrUuid) return;
+
   clearPaymentTimers();
 
-  // fetch once for order number (optional but nice)
-  let orderNo = null;
-  try {
-    const res = await fetch(`/.netlify/functions/order-status?qr_uuid=${encodeURIComponent(qrUuid)}`);
-    const data = await res.json();
-    orderNo = data.order_number || null;
-  } catch {}
+  // UI: show success message + lock buttons
+  const statusEl = document.getElementById("pay-status");
+  statusEl.textContent = "Payment successful ✅";
 
-  document.getElementById("pay-status").textContent =
-    orderNo ? `Payment Confirmed ✅  Order #${orderNo}` : "Payment Confirmed ✅";
+  // Optional: show confirmation number (your qrUuid)
+  document.getElementById("pay-order").textContent = `Confirmation: ${qrUuid}`;
 
+  // Disable actions so people don't click stuff after paid
+  const buttons = document.querySelectorAll("#pay-modal button");
+  buttons.forEach(b => b.disabled = true);
+
+  // Wait 5 seconds then reset everything
   setTimeout(() => {
     document.getElementById("pay-modal").classList.add("hidden");
+
+    // Re-enable buttons for next order
+    buttons.forEach(b => b.disabled = false);
+
+    // Reset UI text for next use
+    statusEl.textContent = "Waiting for payment…";
+
+    // Clear cart + go home
     clearOrder();
     walkInCount++;
     manualSubmitBtn.textContent = "PLACE ORDER";
     manualSubmitBtn.disabled = true;
     returnToLanding();
     activeQrUuid = null;
-  }, 1400);
+  }, 5000);
 }
+
 
 
 function cancelPaymentFlow() {
