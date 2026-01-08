@@ -46,22 +46,33 @@ exports.handler = async (event) => {
       quantity: item.quantity || 1
     }));
 
-    // Create Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      line_items,
-      payment_method_types: ['card'],
-      payment_intent_data: {
-        application_fee_amount: 50, // $0.50 fee
-        transfer_data: {
-          destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID
-        }
-      },
-      metadata: {
-        qr_uuid,
-        guest_name: guest_name || 'Walk-In',
-        source: source || 'kiosk'
-      },
+  metadata: {
+    guest_name: guest_name || 'Walk-In',
+    source: 'Kiosk 1',
+    items: JSON.stringify(items),
+    total: total.toFixed(2),
+    order_summary: items.map(item => {
+      const modText = item.modifiers && item.modifiers.length > 0 ? ` (${item.modifiers.join(', ')})` : '';
+      const qtyText = item.quantity > 1 ? ` x${item.quantity}` : '';
+      return `${item.name}${qtyText}${modText}`;
+    }).join('\n')
+  },
+  payment_intent_data: {
+    application_fee_amount: 50,
+    transfer_data: {
+      destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID
+    },
+    metadata: {
+      guest_name: guest_name || 'Walk-In',
+      source: 'Kiosk 1',
+      items: JSON.stringify(items),
+      order_summary: items.map(item => {
+        const modText = item.modifiers && item.modifiers.length > 0 ? ` (${item.modifiers.join(', ')})` : '';
+        const qtyText = item.quantity > 1 ? ` x${item.quantity}` : '';
+        return `${item.name}${qtyText}${modText}`;
+      }).join('\n')
+    }
+  },
       success_url: `${event.headers.origin || 'https://alscarryout.com'}/success?order_id=${qr_uuid}`,
       cancel_url: `${event.headers.origin || 'https://alscarryout.com'}/cancelled?order_id=${qr_uuid}`
     });
