@@ -45,6 +45,64 @@ exports.handler = async (event) => {
       },
       quantity: item.quantity || 1
     }));
+    const session = await stripe.checkout.sessions.create({
+  mode: 'payment',
+  line_items,
+  payment_method_types: ['card'],
+  payment_intent_data: {
+    application_fee_amount: 50,
+    transfer_data: {
+      destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID
+    }
+  },
+  metadata: {
+    guest_name: guest_name || 'Walk-In',
+    source: 'Kiosk 1'
+  },
+  success_url: `${event.headers.origin || 'https://alscarryout.com'}/success`,
+  cancel_url: `${event.headers.origin || 'https://alscarryout.com'}/cancelled`
+});
+
+// Store order in Supabase BEFORE payment
+const orderSummary = items.map(item => {
+  const modText = item.modifiers && item.modifiers.length > 0 ? ` (${item.modifiers.join(', ')})` : '';
+  const qtyText = item.quantity > 1 ? ` x${item.quantity}` : '';
+  return `${item.name}${qtyText}${modText}`;
+}).join('\n');
+
+const { data: orderData, error: dbError } = await supabase
+  .from('orders')
+  .insert({
+    customer_name: guest_name || 'Walk-In',
+    items: JSON.stringify(items),
+    total: total.toFixed(2),
+    status: 'pending',
+    order_source: 'Kiosk 1',
+    order_summary: orderSummary,
+    payment_intent_id: session.payment_intent,
+    paid: false,
+    acknowledged: false,
+    pickup_time: 'ASAP',
+    created_at: new Date().toISOString()
+  })
+  .select()
+  .single();
+
+if (dbError) {
+  console.error('Database error:', dbError);
+}
+
+return {
+  statusCode: 200,
+  headers: {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*'
+  },
+  body: JSON.stringify({
+    checkout_url: session.url,
+    qr_uuid: session.payment_intent
+  })
+};
 
   metadata: {
     guest_name: guest_name || 'Walk-In',
