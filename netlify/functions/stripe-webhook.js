@@ -64,25 +64,62 @@ const orderSummary = metadata.order_summary || '';
         }
       }
 
-      // Insert order to Supabase
-      const { data, error } = await supabase
-        .from('orders')
-        .insert({
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          items: items,
-          total: paymentIntent.amount_received / 100, // Convert cents to dollars
-          order_source: orderSource,
-order_summary: orderSummary,
-          paid: true,
-          confirmation_number: confirmationNumber,
-          payment_intent_id: paymentIntent.id,
-          payment_method: cardLast4 ? `Card ••${cardLast4}` : 'Card',
-          refunded: false,
-          pickup_time: pickupTime,
-          special_instructions: specialInstructions,
-          created_at: new Date().toISOString()
-        });
+// Try to find existing order by payment_intent_id
+const { data: existingOrder } = await supabase
+  .from('orders')
+  .select('id')
+  .eq('payment_intent_id', paymentIntent.id)
+  .single();
+
+let data, error;
+
+if (existingOrder) {
+  // Update existing order
+  const result = await supabase
+    .from('orders')
+    .update({
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      items: items,
+      total: paymentIntent.amount_received / 100,
+      order_source: orderSource,
+      order_summary: orderSummary,
+      paid: true,
+      confirmation_number: confirmationNumber,
+      payment_method: cardLast4 ? `Card ••${cardLast4}` : 'Card',
+      pickup_time: pickupTime,
+      special_instructions: specialInstructions
+    })
+    .eq('id', existingOrder.id)
+    .select();
+  
+  data = result.data;
+  error = result.error;
+} else {
+  // Insert new order (for web orders that don't pre-create)
+  const result = await supabase
+    .from('orders')
+    .insert({
+      payment_intent_id: paymentIntent.id,
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      items: items,
+      total: paymentIntent.amount_received / 100,
+      order_source: orderSource,
+      order_summary: orderSummary,
+      paid: true,
+      confirmation_number: confirmationNumber,
+      payment_method: cardLast4 ? `Card ••${cardLast4}` : 'Card',
+      refunded: false,
+      pickup_time: pickupTime,
+      special_instructions: specialInstructions,
+      created_at: new Date().toISOString()
+    })
+    .select();
+  
+  data = result.data;
+  error = result.error;
+}
 
       if (error) {
         console.error('Supabase insert error:', error);
