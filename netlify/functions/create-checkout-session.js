@@ -1,5 +1,11 @@
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY_LIVE);
 const { randomUUID } = require("crypto");
+const { createClient } = require("@supabase/supabase-js");
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -18,8 +24,34 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "total must be > 0" }) };
     }
 
-    // Generate a stable confirmation id you can show to customer + store in metadata
     const qr_uuid = randomUUID();
+
+    const orderSummary = items.map((item) => {
+      const modText = item.modifiers?.length ? ` (${item.modifiers.join(", ")})` : "";
+      const qtyText = item.quantity > 1 ? ` x${item.quantity}` : "";
+      return `${item.name}${qtyText}${modText}`;
+    }).join("\n");
+
+    // ✅ Pre-create Supabase row so kiosk can poll by qr_uuid
+    const { error: dbErr } = await supabase.from("orders").insert({
+      customer_name: guest_name || "Walk-In",
+      items, // jsonb array
+      total: totalNum,
+      status: "AWAITING_PAYMENT",
+      order_source: (source || "KIOSK").toUpperCase(),
+      order_summary: orderSummary,
+      confirmation_number: qr_uuid,
+      paid: false,
+      acknowledged: false,
+      refunded: false,
+      pickup_time: "ASAP",
+      created_at: new Date().toISOString(),
+    });
+
+    if (dbErr) {
+      console.error("Supabase insert error:", dbErr);
+      return { statusCode: 500, body: JSON.stringify({ error: "DB insert failed" }) };
+    }
 
     const line_items = items.map((item) => ({
       price_data: {
@@ -39,19 +71,13 @@ exports.handler = async (event) => {
       mode: "payment",
       line_items,
       payment_method_types: ["card"],
-
-      // Put EVERYTHING the webhook needs right here (small enough to fit metadata)
       metadata: {
         qr_uuid,
         source: (source || "KIOSK").toUpperCase(),
         guest_name: guest_name || "Walk-In",
-        // You generally should NOT store full items JSON in Stripe metadata (limits).
-        // We'll fetch session line items inside webhook instead.
       },
-
       success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
       cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
-
       payment_intent_data: {
         application_fee_amount: 50,
         transfer_data: {
@@ -64,13 +90,19 @@ exports.handler = async (event) => {
       },
     });
 
+    // Optional: store payment_intent_id now if available
+    await supabase
+      .from("orders")
+      .update({ payment_intent_id: session.payment_intent || null })
+      .eq("confirmation_number", qr_uuid);
+
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
         checkout_url: session.url,
-        session_id: session.id,  // ✅ IMPORTANT: kiosk polls using this
-        qr_uuid,                 // ✅ optional: display as confirmation
+        session_id: session.id,
+        qr_uuid,
       }),
     };
   } catch (e) {
