@@ -90,8 +90,7 @@ exports.handler = async (event) => {
         application_fee_amount: platformFee,
         transfer_data: {
           destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
-          amount: transferAmount,
-        },
+                 },
         metadata: {
           qr_uuid,
           source: (source || "KIOSK").toUpperCase(),
