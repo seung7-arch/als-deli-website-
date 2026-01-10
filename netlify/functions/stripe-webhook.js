@@ -1,4 +1,4 @@
-if (stripeEvent.type === "checkout.session.completed") {
+else if (stripeEvent.type === 'payment_intent.succeeded') {
   const session = stripeEvent.data.object;
 
   const qr_uuid = session.metadata?.qr_uuid; // MUST exist
@@ -36,6 +36,44 @@ if (stripeEvent.type === "checkout.session.completed") {
       price: li.quantity ? (li.amount_total / 100) / li.quantity : (li.amount_total / 100),
       modifiers: [],
     }));
+    if (stripeEvent.type === 'checkout.session.completed') {
+  const session = stripeEvent.data.object;
+  const qr_uuid = session.metadata?.qr_uuid;
+  
+  if (!qr_uuid) {
+    console.warn("Missing qr_uuid");
+    return { statusCode: 200, body: JSON.stringify({ received: true }) };
+  }
+
+  const paymentIntentId = session.payment_intent;
+  let cardLast4 = '';
+  
+  try {
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+    if (pi.payment_method) {
+      const pm = await stripe.paymentMethods.retrieve(pi.payment_method);
+      cardLast4 = pm.card?.last4 || '';
+    }
+  } catch (e) {}
+
+  const { data, error } = await supabase
+    .from('orders')
+    .update({
+      paid: true,
+      status: 'pending',
+      payment_intent_id: paymentIntentId,
+      payment_method: cardLast4 ? `Card ••${cardLast4}` : 'Card'
+    })
+    .eq('confirmation_number', qr_uuid)
+    .select();
+
+  if (error || !data || data.length === 0) {
+    console.error('Update failed:', error);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Update failed' }) };
+  }
+
+  return { statusCode: 200, body: JSON.stringify({ received: true }) };
+}
     if (typeof session.amount_total === "number") {
       total = session.amount_total / 100;
     }
