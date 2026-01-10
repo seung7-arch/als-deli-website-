@@ -19,13 +19,11 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "items required" }) };
     }
 
-    // 1. Calculate Subtotal and Line Items
+    // 1. Calculate Subtotal
     let subtotalCents = 0;
-    
     const line_items = items.map((item) => {
       const unitAmount = Math.round(Number(item.price) * 100);
       subtotalCents += unitAmount * (item.quantity || 1);
-
       return {
         price_data: {
           currency: "usd",
@@ -39,34 +37,23 @@ exports.handler = async (event) => {
       };
     });
 
-    // 2. Calculate 10% DC Sales Tax
+    // 2. Add Tax
     const taxAmountCents = Math.round(subtotalCents * 0.10);
-    
-    // Add Tax as a line item
     line_items.push({
       price_data: {
         currency: "usd",
-        product_data: {
-          name: "DC Sales Tax (10%)",
-        },
+        product_data: { name: "DC Sales Tax (10%)" },
         unit_amount: taxAmountCents,
       },
       quantity: 1,
     });
 
-    // 3. Final Totals for DB
-    const finalTotalCents = subtotalCents + taxAmountCents;
-    const finalTotalDollars = finalTotalCents / 100;
-
+    const finalTotalDollars = (subtotalCents + taxAmountCents) / 100;
     const qr_uuid = randomUUID();
-    const orderSummary = items.map((item) => {
-      const modText = item.modifiers?.length ? ` (${item.modifiers.join(", ")})` : "";
-      const qtyText = item.quantity > 1 ? ` x${item.quantity}` : "";
-      return `${item.name}${qtyText}${modText}`;
-    }).join("\n");
-
-    // 4. Insert Order into Supabase
-    const { error: dbErr } = await supabase.from("orders").insert({
+    
+    // 3. Create Order in DB
+    const orderSummary = items.map(i => `${i.name} x${i.quantity}`).join("\n");
+    await supabase.from("orders").insert({
       customer_name: guest_name || "Walk-In",
       items,
       total: finalTotalDollars,
@@ -75,24 +62,27 @@ exports.handler = async (event) => {
       order_summary: orderSummary,
       confirmation_number: qr_uuid,
       paid: false,
-      acknowledged: false,
-      refunded: false,
-      pickup_time: "ASAP",
       created_at: new Date().toISOString(),
     });
 
-    if (dbErr) {
-      console.error("Supabase insert error:", dbErr);
-      return { statusCode: 500, body: JSON.stringify({ error: "DB insert failed" }) };
-    }
-
     const origin = event.headers.origin || "https://alscarryout.com";
 
-    // 5. Create Stripe Session (DESTINATION CHARGE with on_behalf_of)
+    // 4. Create Session (Force Card + Wallets, Kill Link)
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items,
-      payment_method_types: ["card"],
+      // STRICTLY allow only 'card'.
+      // Note: 'card' includes Apple Pay and Google Pay automatically.
+      // Do NOT add 'link' here.
+      payment_method_types: ["card"], 
+      
+      // Force 'Any' 3DS to encourage wallet usage
+      payment_method_options: {
+        card: {
+          request_three_d_secure: 'any',
+        },
+      },
+      
       metadata: {
         qr_uuid,
         source: (source || "KIOSK").toUpperCase(),
@@ -101,26 +91,17 @@ exports.handler = async (event) => {
       success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
       cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
       payment_intent_data: {
-        application_fee_amount: 50, // Volo gets exactly $0.50
+        application_fee_amount: 50,
         statement_descriptor_suffix: "ALS DELI",
         transfer_data: {
           destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
         },
-        on_behalf_of: process.env.STRIPE_CONNECTED_ACCOUNT_ID, // Al's pays Stripe fees
-        metadata: {
-          qr_uuid,
-          source: (source || "KIOSK").toUpperCase(),
-          tax_amount: (taxAmountCents / 100).toFixed(2),
-          subtotal_amount: (subtotalCents / 100).toFixed(2),
-        },
+        on_behalf_of: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
+        metadata: { qr_uuid },
       },
     });
 
-    // Update DB with payment intent
-    await supabase
-      .from("orders")
-      .update({ payment_intent_id: session.payment_intent || null })
-      .eq("confirmation_number", qr_uuid);
+    await supabase.from("orders").update({ payment_intent_id: session.payment_intent }).eq("confirmation_number", qr_uuid);
 
     return {
       statusCode: 200,
@@ -133,11 +114,7 @@ exports.handler = async (event) => {
       }),
     };
   } catch (e) {
-    console.error("create-checkout-session error:", e);
-    return {
-      statusCode: 500,
-      headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ error: "Failed to create checkout session", message: e.message }),
-    };
+    console.error("Error:", e);
+    return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
   }
 };
