@@ -83,7 +83,15 @@ exports.handler = async (event) => {
     try {
       const metadata = paymentIntent.metadata || {};
       const customerName = metadata.guest_name || metadata.customer_name || 'Guest';
+      const qr_uuid = metadata.qr_uuid;
+
+// If qr_uuid exists, this is a kiosk order already handled by checkout.session.completed
+if (qr_uuid) {
+  console.log('Skipping payment_intent.succeeded for kiosk order:', qr_uuid);
+  return { statusCode: 200, body: JSON.stringify({ received: true, note: 'kiosk order' }) };
+}
       const orderSource = metadata.source || 'WEB';
+      
       const orderSummary = metadata.order_summary || '';
       const customerPhone = metadata.customer_phone || '';
       const items = metadata.items || '[]';
@@ -103,12 +111,27 @@ exports.handler = async (event) => {
         }
       }
 
-      // Try to find existing order
-      const { data: existingOrder } = await supabase
-        .from('orders')
-        .select('id')
-        .eq('payment_intent_id', paymentIntent.id)
-        .single();
+     // Try to find existing order by payment_intent_id OR qr_uuid
+
+let existingOrder = null;
+
+if (qr_uuid) {
+  const result = await supabase
+    .from('orders')
+    .select('id')
+    .eq('confirmation_number', qr_uuid)
+    .single();
+  existingOrder = result.data;
+}
+
+if (!existingOrder) {
+  const result = await supabase
+    .from('orders')
+    .select('id')
+    .eq('payment_intent_id', paymentIntent.id)
+    .single();
+  existingOrder = result.data;
+}
 
       let data, error;
 
