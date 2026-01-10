@@ -60,6 +60,11 @@ exports.handler = async (event) => {
           name: String(item.name || "Item"),
           description: item.modifiers?.length ? item.modifiers.join(", ") : undefined,
         },
+        metadata: {
+  qr_uuid,  // ← This MUST be here
+  source: (source || "KIOSK").toUpperCase(),
+  guest_name: guest_name || "Walk-In",
+},
         unit_amount: Math.round(Number(item.price) * 100),
       },
       quantity: item.quantity || 1,
@@ -79,10 +84,12 @@ exports.handler = async (event) => {
       success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
       cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
       payment_intent_data: {
-        application_fee_amount: 50,
-        transfer_data: {
-          destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
-        },
+  application_fee_amount: 50,
+  on_behalf_of: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
+  transfer_data: {
+    destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
+    amount: Math.round(totalNum * 100) - 50, // Transfer total minus your 50 cent fee
+  },
         metadata: {
           qr_uuid,
           source: (source || "KIOSK").toUpperCase(),
