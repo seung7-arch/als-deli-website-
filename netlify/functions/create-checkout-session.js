@@ -75,10 +75,10 @@ exports.handler = async (event) => {
     const stripeFee = calculateStripeFee(totalInCents);
     const transferAmount = totalInCents - platformFee - stripeFee;
 
-    const session = await stripe.checkout.sessions.create({
+   const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items,
-      payment_method_types: ["card"],
+      automatic_payment_methods: { enabled: true }, // <--- ADD THIS BLOCK
       metadata: {
         qr_uuid,
         source: (source || "KIOSK").toUpperCase(),
