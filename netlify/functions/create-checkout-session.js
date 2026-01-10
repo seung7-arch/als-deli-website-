@@ -86,11 +86,12 @@ exports.handler = async (event) => {
       },
       success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
       cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
-      payment_intent_data: {
+    payment_intent_data: {
         application_fee_amount: platformFee,
         transfer_data: {
           destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
-                 },
+          amount: transferAmount, // <--- ADD THIS LINE
+        },
         metadata: {
           qr_uuid,
           source: (source || "KIOSK").toUpperCase(),
