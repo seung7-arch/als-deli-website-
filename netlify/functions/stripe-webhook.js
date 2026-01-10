@@ -1,119 +1,191 @@
-else if (stripeEvent.type === 'payment_intent.succeeded') {
-  const session = stripeEvent.data.object;
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY_LIVE);
+const { createClient } = require('@supabase/supabase-js');
 
-  const qr_uuid = session.metadata?.qr_uuid; // MUST exist
-  if (!qr_uuid) {
-    console.warn("checkout.session.completed: missing qr_uuid in metadata", session.id);
-    return { statusCode: 200, body: JSON.stringify({ received: true, note: "no qr_uuid" }) };
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
+
+exports.handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { 
+      statusCode: 405, 
+      body: JSON.stringify({ error: 'Method Not Allowed' })
+    };
   }
 
-  const paymentIntentId = session.payment_intent || null;
+  const sig = event.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  let stripeEvent;
 
-  // OPTIONAL: get last4
-  let paymentMethodLabel = "Card";
   try {
-    if (paymentIntentId) {
+    stripeEvent = stripe.webhooks.constructEvent(event.body, sig, webhookSecret);
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err.message);
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: `Webhook Error: ${err.message}` })
+    };
+  }
+
+  // Handle checkout.session.completed (for kiosk orders)
+  if (stripeEvent.type === 'checkout.session.completed') {
+    const session = stripeEvent.data.object;
+    const qr_uuid = session.metadata?.qr_uuid;
+    
+    if (!qr_uuid) {
+      console.warn("Missing qr_uuid in checkout.session.completed");
+      return { statusCode: 200, body: JSON.stringify({ received: true }) };
+    }
+
+    const paymentIntentId = session.payment_intent;
+    let cardLast4 = '';
+    
+    try {
       const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
       if (pi.payment_method) {
         const pm = await stripe.paymentMethods.retrieve(pi.payment_method);
-        const last4 = pm.card?.last4;
-        if (last4) paymentMethodLabel = `Card ••${last4}`;
+        cardLast4 = pm.card?.last4 || '';
       }
+    } catch (e) {
+      console.warn('Could not fetch payment method:', e.message);
     }
-  } catch (e) {
-    console.warn("Could not fetch payment method:", e.message);
-  }
 
-  // OPTIONAL (recommended): fetch line items so KDS always has items + total
-  let items = null;
-  let total = null;
-  try {
-    const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
-    items = lineItems.data.map(li => ({
-      name: li.description,
-      quantity: li.quantity || 1,
-      // amount_total is for the line item total; per-unit is amount_total / quantity
-      price: li.quantity ? (li.amount_total / 100) / li.quantity : (li.amount_total / 100),
-      modifiers: [],
-    }));
-    if (stripeEvent.type === 'checkout.session.completed') {
-  const session = stripeEvent.data.object;
-  const qr_uuid = session.metadata?.qr_uuid;
-  
-  if (!qr_uuid) {
-    console.warn("Missing qr_uuid");
+    const { data, error } = await supabase
+      .from('orders')
+      .update({
+        paid: true,
+        status: 'pending',
+        payment_intent_id: paymentIntentId,
+        payment_method: cardLast4 ? `Card ••${cardLast4}` : 'Card'
+      })
+      .eq('confirmation_number', qr_uuid)
+      .select();
+
+    if (error) {
+      console.error('Supabase update error:', error);
+      return { statusCode: 500, body: JSON.stringify({ error: 'Update failed' }) };
+    }
+
+    if (!data || data.length === 0) {
+      console.error('No rows updated - confirmation_number mismatch:', qr_uuid);
+      return { statusCode: 200, body: JSON.stringify({ received: true, note: '0 rows updated' }) };
+    }
+
+    console.log('Kiosk order marked paid:', data[0].id);
     return { statusCode: 200, body: JSON.stringify({ received: true }) };
   }
 
-  const paymentIntentId = session.payment_intent;
-  let cardLast4 = '';
-  
-  try {
-    const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
-    if (pi.payment_method) {
-      const pm = await stripe.paymentMethods.retrieve(pi.payment_method);
-      cardLast4 = pm.card?.last4 || '';
+  // Handle payment_intent.succeeded (for web orders - backwards compatibility)
+  else if (stripeEvent.type === 'payment_intent.succeeded') {
+    const paymentIntent = stripeEvent.data.object;
+
+    try {
+      const metadata = paymentIntent.metadata || {};
+      const customerName = metadata.guest_name || metadata.customer_name || 'Guest';
+      const orderSource = metadata.source || 'WEB';
+      const orderSummary = metadata.order_summary || '';
+      const customerPhone = metadata.customer_phone || '';
+      const items = metadata.items || '[]';
+      const confirmationNumber = metadata.confirmation_number || `K${Date.now().toString().slice(-6)}`;
+      const pickupTime = metadata.pickup_time || 'ASAP';
+      const specialInstructions = metadata.special_instructions || '';
+      
+      const paymentMethodId = paymentIntent.payment_method;
+      let cardLast4 = '';
+      
+      if (paymentMethodId) {
+        try {
+          const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+          cardLast4 = paymentMethod.card?.last4 || '';
+        } catch (err) {
+          console.error('Error retrieving payment method:', err);
+        }
+      }
+
+      // Try to find existing order
+      const { data: existingOrder } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('payment_intent_id', paymentIntent.id)
+        .single();
+
+      let data, error;
+
+      if (existingOrder) {
+        // Update existing order
+        const result = await supabase
+          .from('orders')
+          .update({
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            items: items,
+            total: paymentIntent.amount_received / 100,
+            order_source: orderSource,
+            order_summary: orderSummary,
+            paid: true,
+            confirmation_number: confirmationNumber,
+            payment_method: cardLast4 ? `Card ••${cardLast4}` : 'Card',
+            pickup_time: pickupTime,
+            special_instructions: specialInstructions
+          })
+          .eq('id', existingOrder.id)
+          .select();
+        
+        data = result.data;
+        error = result.error;
+      } else {
+        // Insert new order (web orders)
+        const result = await supabase
+          .from('orders')
+          .insert({
+            payment_intent_id: paymentIntent.id,
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            items: items,
+            total: paymentIntent.amount_received / 100,
+            order_source: orderSource,
+            order_summary: orderSummary,
+            paid: true,
+            confirmation_number: confirmationNumber,
+            payment_method: cardLast4 ? `Card ••${cardLast4}` : 'Card',
+            refunded: false,
+            pickup_time: pickupTime,
+            special_instructions: specialInstructions,
+            created_at: new Date().toISOString()
+          })
+          .select();
+        
+        data = result.data;
+        error = result.error;
+      }
+
+      if (error) {
+        console.error('Supabase error:', error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: 'Failed to process order' })
+        };
+      }
+
+      console.log('Web order processed successfully:', data[0]?.id);
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ received: true, orderId: data?.[0]?.id })
+      };
+
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: error.message })
+      };
     }
-  } catch (e) {}
-
-  const { data, error } = await supabase
-    .from('orders')
-    .update({
-      paid: true,
-      status: 'pending',
-      payment_intent_id: paymentIntentId,
-      payment_method: cardLast4 ? `Card ••${cardLast4}` : 'Card'
-    })
-    .eq('confirmation_number', qr_uuid)
-    .select();
-
-  if (error || !data || data.length === 0) {
-    console.error('Update failed:', error);
-    return { statusCode: 500, body: JSON.stringify({ error: 'Update failed' }) };
   }
 
-  return { statusCode: 200, body: JSON.stringify({ received: true }) };
-}
-    if (typeof session.amount_total === "number") {
-      total = session.amount_total / 100;
-    }
-  } catch (e) {
-    console.warn("Could not fetch line items:", e.message);
-  }
-
-  // ✅ IMPORTANT: update the existing order created by create-checkout-session
-  const updatePayload = {
-    paid: true,
-    status: "PENDING", // must match how your KDS expects "current"
-    payment_intent_id: paymentIntentId,
-    payment_method: paymentMethodLabel,
+  // Return success for other event types
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ received: true })
   };
-
-  // only set if we successfully fetched them
-  if (items) updatePayload.items = items;   // <— as JSON array (best)
-  if (total != null) updatePayload.total = total;
-
-  const { data, error } = await supabase
-    .from("orders")
-    .update(updatePayload)
-    .eq("confirmation_number", qr_uuid)
-    .select(); // 👈 lets us see if anything matched
-
-  if (error) {
-    console.error("Supabase update error:", error);
-    return { statusCode: 500, body: JSON.stringify({ error: "DB update failed" }) };
-  }
-
-  // 🚨 KEY DEBUG: if data is empty, you updated 0 rows (no match)
-  if (!data || data.length === 0) {
-    console.error(
-      "Supabase update matched 0 rows. Likely confirmation_number mismatch or pre-insert didn't happen.",
-      { qr_uuid, session_id: session.id, payment_intent_id: paymentIntentId }
-    );
-    return { statusCode: 200, body: JSON.stringify({ received: true, note: "0 rows updated", qr_uuid }) };
-  }
-
-  console.log("Order marked paid:", data[0].id, "confirmation:", qr_uuid);
-
-  return { statusCode: 200, body: JSON.stringify({ received: true }) };
-}
+};
