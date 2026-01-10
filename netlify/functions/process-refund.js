@@ -67,10 +67,12 @@ exports.handler = async (event) => {
     console.log('Processing refund:', { paymentIntentId, amount, orderId });
 
     // Create refund in Stripe
+   // Create refund in Stripe
     const refund = await stripe.refunds.create({
       payment_intent: paymentIntentId,
       amount: amount ? Math.round(amount) : undefined, // in cents
       reason: 'requested_by_customer',
+      reverse_transfer: true, // <--- ADD THIS LINE
     });
 
     console.log('Stripe refund created:', refund.id);
