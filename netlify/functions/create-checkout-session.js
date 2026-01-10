@@ -69,7 +69,7 @@ exports.handler = async (event) => {
     const { error: dbErr } = await supabase.from("orders").insert({
       customer_name: guest_name || "Walk-In",
       items,
-      total: finalTotalDollars, // Save the total including tax
+      total: finalTotalDollars,
       status: "AWAITING_PAYMENT",
       order_source: (source || "KIOSK").toUpperCase(),
       order_summary: orderSummary,
@@ -88,34 +88,33 @@ exports.handler = async (event) => {
 
     const origin = event.headers.origin || "https://alscarryout.com";
 
-    // 5. Create Stripe Session (DIRECT CHARGE)
-    // We pass the 'stripeAccount' option to create this session directly on Al's account.
-    const session = await stripe.checkout.sessions.create(
-      {
-        mode: "payment",
-        line_items,
-        automatic_payment_methods: { enabled: true },
+    // 5. Create Stripe Session (DESTINATION CHARGE with on_behalf_of)
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items,
+      payment_method_types: ["card"],
+      metadata: {
+        qr_uuid,
+        source: (source || "KIOSK").toUpperCase(),
+        guest_name: guest_name || "Walk-In",
+      },
+      success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
+      cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
+      payment_intent_data: {
+        application_fee_amount: 50, // Volo gets exactly $0.50
+        statement_descriptor_suffix: "ALS DELI",
+        transfer_data: {
+          destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
+        },
+        on_behalf_of: process.env.STRIPE_CONNECTED_ACCOUNT_ID, // Al's pays Stripe fees
         metadata: {
           qr_uuid,
           source: (source || "KIOSK").toUpperCase(),
-          guest_name: guest_name || "Walk-In",
-        },
-        success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
-        cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
-        payment_intent_data: {
-          application_fee_amount: 50, // Volo takes exactly 50 cents
-          // Note: No transfer_data needed. Stripe fees are deducted from Al's cut automatically.
-          metadata: {
-            qr_uuid,
-            source: (source || "KIOSK").toUpperCase(),
-          },
+          tax_amount: (taxAmountCents / 100).toFixed(2),
+          subtotal_amount: (subtotalCents / 100).toFixed(2),
         },
       },
-      {
-        // CRITICAL: This header ensures Al's is the Merchant of Record
-        stripeAccount: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
-      }
-    );
+    });
 
     // Update DB with payment intent
     await supabase
