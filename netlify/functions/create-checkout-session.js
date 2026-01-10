@@ -7,6 +7,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+function calculateStripeFee(amountInCents) {
+  return Math.round(amountInCents * 0.029 + 30);
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
@@ -32,10 +36,10 @@ exports.handler = async (event) => {
       return `${item.name}${qtyText}${modText}`;
     }).join("\n");
 
-    // ✅ Pre-create Supabase row so kiosk can poll by qr_uuid
+    // Pre-create Supabase row
     const { error: dbErr } = await supabase.from("orders").insert({
       customer_name: guest_name || "Walk-In",
-      items, // jsonb array
+      items,
       total: totalNum,
       status: "AWAITING_PAYMENT",
       order_source: (source || "KIOSK").toUpperCase(),
@@ -60,17 +64,16 @@ exports.handler = async (event) => {
           name: String(item.name || "Item"),
           description: item.modifiers?.length ? item.modifiers.join(", ") : undefined,
         },
-        metadata: {
-  qr_uuid,  // ← This MUST be here
-  source: (source || "KIOSK").toUpperCase(),
-  guest_name: guest_name || "Walk-In",
-},
         unit_amount: Math.round(Number(item.price) * 100),
       },
       quantity: item.quantity || 1,
     }));
 
     const origin = event.headers.origin || "https://alscarryout.com";
+    const totalInCents = Math.round(totalNum * 100);
+    const platformFee = 50;
+    const stripeFee = calculateStripeFee(totalInCents);
+    const transferAmount = totalInCents - platformFee - stripeFee;
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -83,11 +86,12 @@ exports.handler = async (event) => {
       },
       success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
       cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
-  payment_intent_data: {
-  application_fee_amount: 50,
-  transfer_data: {
-    destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
-  },
+      payment_intent_data: {
+        application_fee_amount: platformFee,
+        transfer_data: {
+          destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
+          amount: transferAmount,
+        },
         metadata: {
           qr_uuid,
           source: (source || "KIOSK").toUpperCase(),
@@ -95,7 +99,7 @@ exports.handler = async (event) => {
       },
     });
 
-    // Optional: store payment_intent_id now if available
+    // Store payment_intent_id
     await supabase
       .from("orders")
       .update({ payment_intent_id: session.payment_intent || null })
