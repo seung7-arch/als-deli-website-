@@ -7,40 +7,69 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-function calculateStripeFee(amountInCents) {
-  return Math.round(amountInCents * 0.029 + 30);
-}
-
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
   }
 
   try {
-    const { guest_name, items, total, source } = JSON.parse(event.body || "{}");
+    const { guest_name, items, source } = JSON.parse(event.body || "{}");
 
     if (!Array.isArray(items) || items.length === 0) {
       return { statusCode: 400, body: JSON.stringify({ error: "items required" }) };
     }
 
-    const totalNum = Number(total);
-    if (!Number.isFinite(totalNum) || totalNum <= 0) {
-      return { statusCode: 400, body: JSON.stringify({ error: "total must be > 0" }) };
-    }
+    // 1. Calculate Subtotal and Line Items
+    let subtotalCents = 0;
+    
+    const line_items = items.map((item) => {
+      const unitAmount = Math.round(Number(item.price) * 100);
+      subtotalCents += unitAmount * (item.quantity || 1);
+
+      return {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: String(item.name || "Item"),
+            description: item.modifiers?.length ? item.modifiers.join(", ") : undefined,
+          },
+          unit_amount: unitAmount,
+        },
+        quantity: item.quantity || 1,
+      };
+    });
+
+    // 2. Calculate 10% DC Sales Tax
+    const taxAmountCents = Math.round(subtotalCents * 0.10);
+    
+    // Add Tax as a line item
+    line_items.push({
+      price_data: {
+        currency: "usd",
+        product_data: {
+          name: "DC Sales Tax (10%)",
+        },
+        unit_amount: taxAmountCents,
+      },
+      quantity: 1,
+    });
+
+    // 3. Final Totals for DB
+    const finalTotalCents = subtotalCents + taxAmountCents;
+    const finalTotalDollars = finalTotalCents / 100;
 
     const qr_uuid = randomUUID();
-
     const orderSummary = items.map((item) => {
       const modText = item.modifiers?.length ? ` (${item.modifiers.join(", ")})` : "";
       const qtyText = item.quantity > 1 ? ` x${item.quantity}` : "";
       return `${item.name}${qtyText}${modText}`;
     }).join("\n");
 
-    // Pre-create Supabase row
+    // 4. Insert Order into Supabase
     const { error: dbErr } = await supabase.from("orders").insert({
       customer_name: guest_name || "Walk-In",
       items,
-      total: totalNum,
+      total: finalTotalDollars, // Save the total including tax
       status: "AWAITING_PAYMENT",
       order_source: (source || "KIOSK").toUpperCase(),
       order_summary: orderSummary,
@@ -57,49 +86,38 @@ exports.handler = async (event) => {
       return { statusCode: 500, body: JSON.stringify({ error: "DB insert failed" }) };
     }
 
-    const line_items = items.map((item) => ({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: String(item.name || "Item"),
-          description: item.modifiers?.length ? item.modifiers.join(", ") : undefined,
-        },
-        unit_amount: Math.round(Number(item.price) * 100),
-      },
-      quantity: item.quantity || 1,
-    }));
-
     const origin = event.headers.origin || "https://alscarryout.com";
-    const totalInCents = Math.round(totalNum * 100);
-    const platformFee = 50;
-    const stripeFee = calculateStripeFee(totalInCents);
-    const transferAmount = totalInCents - platformFee - stripeFee;
 
-   const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items,
-      automatic_payment_methods: { enabled: true }, // <--- ADD THIS BLOCK
-      metadata: {
-        qr_uuid,
-        source: (source || "KIOSK").toUpperCase(),
-        guest_name: guest_name || "Walk-In",
-      },
-      success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
-      cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
-    payment_intent_data: {
-        application_fee_amount: platformFee,
-        transfer_data: {
-          destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
-          amount: transferAmount, // <--- ADD THIS LINE
-        },
+    // 5. Create Stripe Session (DIRECT CHARGE)
+    // We pass the 'stripeAccount' option to create this session directly on Al's account.
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        line_items,
+        automatic_payment_methods: { enabled: true },
         metadata: {
           qr_uuid,
           source: (source || "KIOSK").toUpperCase(),
+          guest_name: guest_name || "Walk-In",
+        },
+        success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
+        cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
+        payment_intent_data: {
+          application_fee_amount: 50, // Volo takes exactly 50 cents
+          // Note: No transfer_data needed. Stripe fees are deducted from Al's cut automatically.
+          metadata: {
+            qr_uuid,
+            source: (source || "KIOSK").toUpperCase(),
+          },
         },
       },
-    });
+      {
+        // CRITICAL: This header ensures Al's is the Merchant of Record
+        stripeAccount: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
+      }
+    );
 
-    // Store payment_intent_id
+    // Update DB with payment intent
     await supabase
       .from("orders")
       .update({ payment_intent_id: session.payment_intent || null })
@@ -112,6 +130,7 @@ exports.handler = async (event) => {
         checkout_url: session.url,
         session_id: session.id,
         qr_uuid,
+        final_total: finalTotalDollars,
       }),
     };
   } catch (e) {
