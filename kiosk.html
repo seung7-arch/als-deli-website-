@@ -931,90 +931,65 @@ function clearPaymentTimers() {
   if (timeoutTimer) { clearTimeout(timeoutTimer); timeoutTimer = null; }
 }
 
+
 async function submitOrderManually() {
   if (orderLines.length === 0) return;
 
+  // 1. Lock Button
   manualSubmitBtn.disabled = true;
   manualSubmitBtn.textContent = "CREATING PAYMENT…";
+
+  // 2. Define Payload (Fixes the "payload is not defined" error)
+  const payload = {
+    guest_name: `Walk-In #${walkInCount}`,
+    items: orderLines,
+    total: Number(currentTotal.toFixed(2)),
+    source: "kiosk"
+  };
 
   try {
     const res = await fetch("/.netlify/functions/create-checkout-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        guest_name: `Walk-In #${walkInCount}`,
-        items: orderLines,
-        total: Number(currentTotal.toFixed(2)),
-        source: "kiosk"
-      })
+      body: JSON.stringify(payload)
     });
 
-	  // ... inside submitOrderManually function ...
+    const data = await res.json();
 
-try {
-  const response = await fetch("/.netlify/functions/create-checkout-session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  const data = await response.json();
-
-  // --- NEW: Check for the $10 Limit Error ---
-  if (!response.ok) {
-    if (data.message) {
-      // Show the specific warning to the customer
-      alert(data.message);
-      return; // Stop here, do not proceed to Stripe
+    // 3. Handle $10 Minimum (or other server errors)
+    if (!res.ok) {
+      if (data.message) {
+        // Show the specific message: "Minimum order is $10..."
+        alert(data.message);
+      } else {
+        alert(data.error || "Server error");
+      }
+      
+      // Reset the button so they can add more items
+      manualSubmitBtn.textContent = "PLACE ORDER";
+      manualSubmitBtn.disabled = false;
+      return; // Stop here!
     }
-    throw new Error(data.error || "Server error");
-  }
-  // ------------------------------------------
 
-  if (!data.checkout_url) {
-    throw new Error("Missing checkout_url or session_id from create-checkout-session");
-  }
+    // 4. Handle Success
+    const { checkout_url, session_id, qr_uuid } = data;
 
-  // Redirect to Stripe
-  window.location.href = data.checkout_url;
+    if (!checkout_url || !session_id) {
+      throw new Error("Missing checkout_url or session_id");
+    }
 
-} catch (err) {
-  console.error(err);
-  alert("Error starting checkout: " + err.message);
-}
+    // 5. Start QR Code Flow
+    activeQrUuid = qr_uuid || session_id;
+    document.getElementById("pay-status").textContent = "Waiting for payment…";
+    showPayModal(checkout_url, activeQrUuid);
 
- const data = await res.json();
-const { checkout_url, session_id, qr_uuid } = data;
+    // Start polling
+    clearPaymentTimers();
+    pollTimer = setInterval(() => pollPaymentStatus({ session_id, qr_uuid: activeQrUuid }), 1500);
 
-if (!checkout_url || !session_id) {
-  throw new Error("Missing checkout_url or session_id from create-checkout-session");
-}
-
-// Keep showing something human-readable.
-// Prefer qr_uuid if you like it as the “confirmation shown to customer”.
-activeQrUuid = qr_uuid || session_id;
-
-// UI
-document.getElementById("pay-status").textContent = "Waiting for payment…";
-showPayModal(checkout_url, activeQrUuid);
-
-// Start polling + timeout
-clearPaymentTimers();
-
-pollTimer = setInterval(() => pollPaymentStatus({ session_id, qr_uuid: activeQrUuid }), 1500);
-
-timeoutTimer = setTimeout(() => {
-  if (activeQrUuid !== (qr_uuid || session_id)) return;
-  document.getElementById("pay-status").textContent = "Session expired ⏱️";
-  cancelPaymentFlow();
-}, PAYMENT_TIMEOUT_MS);
-
-manualSubmitBtn.textContent = "AWAITING PAYMENT…";
-
-
+    // Set timeout
     timeoutTimer = setTimeout(() => {
-      // Only timeout the currently active session
-      if (activeQrUuid !== qr_uuid) return;
+      if (activeQrUuid !== (qr_uuid || session_id)) return;
       document.getElementById("pay-status").textContent = "Session expired ⏱️";
       cancelPaymentFlow();
     }, PAYMENT_TIMEOUT_MS);
@@ -1023,11 +998,11 @@ manualSubmitBtn.textContent = "AWAITING PAYMENT…";
 
   } catch (e) {
     console.error(e);
-    manualSubmitBtn.textContent = "ERROR";
+    alert("Error: " + e.message);
+    manualSubmitBtn.textContent = "PLACE ORDER";
     manualSubmitBtn.disabled = false;
   }
 }
-
 function showPayModal(url, qrUuid) {
   document.getElementById("pay-modal").classList.remove("hidden");
   document.getElementById("pay-order").textContent = `Order: ${qrUuid}`;
