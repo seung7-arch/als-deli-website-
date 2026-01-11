@@ -58,15 +58,7 @@ try {
   console.warn('Could not fetch payment intent:', e.message);
 }
 // Fetch payment intent to get items from metadata
-let originalItems = [];
-try {
-  const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
-  if (pi.metadata?.items_json) {
-    originalItems = JSON.parse(pi.metadata.items_json);
-  }
-} catch (e) {
-  console.warn('Could not fetch items from payment intent:', e.message);
-}
+
   // Fetch line items from Stripe
   let items = [];
   let orderSummary = '';
