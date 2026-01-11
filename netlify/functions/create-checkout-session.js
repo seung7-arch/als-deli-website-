@@ -42,22 +42,22 @@ exports.handler = async (event) => {
     const finalTotalCents = subtotalCents + taxAmountCents;
     const finalTotalDollars = finalTotalCents / 100;
 
-    // --- CHECK: FORCE $10.00 MINIMUM ---
+    // 3. CHECK: $10.00 MINIMUM
     if (finalTotalDollars < 10.00) {
       return {
         statusCode: 400,
         headers: { 
-            "Access-Control-Allow-Origin": "*",
-            "Content-Type": "application/json"
+          "Access-Control-Allow-Origin": "*",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ 
-            error: "Order Minimum Not Met",
-            message: "The minimum order for card payments is $10.00. Please add another item, or click the PAY AT CASHIER button" 
+          error: "Order Minimum Not Met",
+          message: "The minimum order for card payments is $10.00. Please add another item, or click the PAY AT CASHIER button" 
         })
       };
     }
 
-    // Add Tax line item
+    // 4. Add Tax line item
     line_items.push({
       price_data: {
         currency: "usd",
@@ -68,60 +68,40 @@ exports.handler = async (event) => {
     });
 
     const qr_uuid = randomUUID();
-    
-    // 3. Create Order in DB
-    const orderSummary = items.map(i => `${i.name} x${i.quantity}`).join("\n");
-    
-    const { error: dbErr } = await supabase.from("orders").insert({
-      customer_name: guest_name || "Walk-In",
-      items,
-      total: finalTotalDollars,
-      status: "AWAITING_PAYMENT",
-      order_source: (source || "KIOSK").toUpperCase(),
-      order_summary: orderSummary,
-      confirmation_number: qr_uuid,
-      paid: false,
-      created_at: new Date().toISOString(),
-    });
-
-    if (dbErr) {
-      console.error("Supabase insert error:", dbErr);
-      return { statusCode: 500, body: JSON.stringify({ error: "DB insert failed" }) };
-    }
-
     const origin = event.headers.origin || "https://alscarryout.com";
 
-    // 4. Create Stripe Session (DIRECT CHARGE MODE)
-    const session = await stripe.checkout.sessions.create(
-      {
-        mode: "payment",
-        line_items,
-        payment_method_types: ["card"], 
-        payment_method_options: {
-          card: { request_three_d_secure: 'any' },
+    // 5. Create Stripe Session (DESTINATION CHARGE with on_behalf_of)
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items,
+      payment_method_types: ["card"],
+      payment_method_options: {
+        card: { request_three_d_secure: 'any' },
+      },
+      metadata: {
+        qr_uuid,
+        source: (source || "KIOSK").toUpperCase(),
+        guest_name: guest_name || "Walk-In",
+      },
+      success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
+      cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
+      payment_intent_data: {
+        application_fee_amount: 50, // Volo gets exactly $0.50
+        statement_descriptor_suffix: "ALS DELI",
+        transfer_data: {
+          destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
+          // No amount specified - Stripe auto-calculates: Charge - App Fee - Stripe Fee
         },
+        on_behalf_of: process.env.STRIPE_CONNECTED_ACCOUNT_ID, // Al's Deli pays Stripe fees
         metadata: {
           qr_uuid,
           source: (source || "KIOSK").toUpperCase(),
-          guest_name: guest_name || "Walk-In",
-        },
-        success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
-        cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
-        
-        // VOLO FEE SETUP
-        payment_intent_data: {
-          application_fee_amount: 50, // You get exactly 50 cents
-          // NOTE: No transfer_data here. We use stripeAccount below.
+          items_json: JSON.stringify(items), // Full items array with all modifiers
+          tax_amount: (taxAmountCents / 100).toFixed(2),
+          subtotal_amount: (subtotalCents / 100).toFixed(2),
         },
       },
-      {
-        // CRITICAL: This makes Al the Merchant. 
-        // He pays the Stripe fees. You just get the application_fee.
-        stripeAccount: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
-      }
-    );
-
-    await supabase.from("orders").update({ payment_intent_id: session.payment_intent }).eq("confirmation_number", qr_uuid);
+    });
 
     return {
       statusCode: 200,
@@ -134,7 +114,11 @@ exports.handler = async (event) => {
       }),
     };
   } catch (e) {
-    console.error("Error:", e);
-    return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
+    console.error("create-checkout-session error:", e);
+    return {
+      statusCode: 500,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ error: "Failed to create checkout session", message: e.message }),
+    };
   }
 };
