@@ -950,7 +950,64 @@ function clearPaymentTimers() {
   if (timeoutTimer) { clearTimeout(timeoutTimer); timeoutTimer = null; }
 }
 
+async function payAtCashier() {
+  try {
+    // Get current order
+    const orderLines = JSON.parse(localStorage.getItem('orderLines') || '[]');
+    if (orderLines.length === 0) {
+      alert('Your cart is empty');
+      return;
+    }
 
+    // Calculate totals
+    let subtotal = 0;
+    orderLines.forEach(item => {
+      subtotal += Number(item.price) * (item.quantity || 1);
+    });
+    const tax = Math.round(subtotal * 0.10 * 100) / 100;
+    const total = subtotal + tax;
+
+    // Create order in Supabase
+    const { data: order, error } = await supabase
+      .from('orders')
+      .insert([{
+        guest_name: `Walk-In #${walkInCount}`,
+        items: orderLines,
+        subtotal_amount: subtotal,
+        tax_amount: tax,
+        total_amount: total,
+        status: 'pending',
+        payment_method: 'cash',
+        source: 'kiosk',
+        qr_uuid: null,
+        payment_intent_id: null
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating cash order:', error);
+      alert('Failed to create order. Please try again.');
+      return;
+    }
+
+    console.log('Cash order created:', order);
+
+    // Clear cart and close modal
+    localStorage.removeItem('orderLines');
+    walkInCount++;
+    localStorage.setItem('walkInCount', walkInCount);
+    renderOrderList();
+    closeMinimumModal();
+
+    // Show success message
+    alert(`Order #${order.confirmation_number} placed! Please pay at the cashier.`);
+
+  } catch (err) {
+    console.error('payAtCashier error:', err);
+    alert('An error occurred. Please try again.');
+  }
+}
 async function submitOrderManually() {
   if (orderLines.length === 0) return;
 
@@ -1166,26 +1223,6 @@ function closeMinOrderModal() {
   if (modal) modal.classList.add('hidden');
 }
 
-function handleMinOrderCashierPay() {
-  // 1. Close the warning modal
-  closeMinOrderModal();
-
-  // 2. Generate a temporary UUID
-  const tempUuid = typeof crypto.randomUUID === 'function' 
-    ? crypto.randomUUID() 
-    : 'cashier-' + Date.now();
-    
-  activeQrUuid = tempUuid;
-
-  // 3. Open the "Pay Modal" so the user can see status
-  document.getElementById("pay-modal").classList.remove("hidden");
-  document.getElementById("pay-qr").innerHTML = ""; 
-  document.getElementById("pay-order").textContent = `Order: ${tempUuid}`;
-  document.getElementById("pay-status").textContent = "Sending to cashier...";
-
-  // 4. Trigger the existing cashier logic
-  cashierOverride();
-}
 
      
     // CUSTOMIZER
@@ -1478,9 +1515,9 @@ function handleMinOrderCashierPay() {
     </p>
 
     <div class="flex flex-col gap-3">
-        <button onclick="handleMinOrderCashierPay()" class="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-black text-lg py-4 rounded-2xl shadow-lg transform active:scale-95 transition-all">
-            PAY AT CASHIER
-        </button>
+      <button onclick="payAtCashier()" class="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-black text-lg py-4 rounded-2xl shadow-lg transform active:scale-95 transition-all">
+    PAY AT CASHIER
+</button>
 
         <button onclick="closeMinOrderModal()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-lg py-4 rounded-2xl transform active:scale-95 transition-all">
             Add More Items
