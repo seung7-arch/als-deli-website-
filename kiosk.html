@@ -935,11 +935,9 @@ function clearPaymentTimers() {
 async function submitOrderManually() {
   if (orderLines.length === 0) return;
 
-  // 1. Lock Button
   manualSubmitBtn.disabled = true;
   manualSubmitBtn.textContent = "CREATING PAYMENT…";
 
-  // 2. Define Payload (Fixes the "payload is not defined" error)
   const payload = {
     guest_name: `Walk-In #${walkInCount}`,
     items: orderLines,
@@ -956,38 +954,35 @@ async function submitOrderManually() {
 
     const data = await res.json();
 
-    // 3. Handle $10 Minimum (or other server errors)
+    // --- CHECK FOR $10 MINIMUM ---
     if (!res.ok) {
       if (data.message) {
-        // Show the specific message: "Minimum order is $10..."
-        alert(data.message);
+        // USE THE NEW MODAL HERE
+        showMinOrderModal();
       } else {
         alert(data.error || "Server error");
       }
       
-      // Reset the button so they can add more items
+      // Reset Button
       manualSubmitBtn.textContent = "PLACE ORDER";
       manualSubmitBtn.disabled = false;
-      return; // Stop here!
+      return; 
     }
+    // -----------------------------
 
-    // 4. Handle Success
     const { checkout_url, session_id, qr_uuid } = data;
 
     if (!checkout_url || !session_id) {
       throw new Error("Missing checkout_url or session_id");
     }
 
-    // 5. Start QR Code Flow
     activeQrUuid = qr_uuid || session_id;
     document.getElementById("pay-status").textContent = "Waiting for payment…";
     showPayModal(checkout_url, activeQrUuid);
 
-    // Start polling
     clearPaymentTimers();
     pollTimer = setInterval(() => pollPaymentStatus({ session_id, qr_uuid: activeQrUuid }), 1500);
 
-    // Set timeout
     timeoutTimer = setTimeout(() => {
       if (activeQrUuid !== (qr_uuid || session_id)) return;
       document.getElementById("pay-status").textContent = "Session expired ⏱️";
@@ -1125,7 +1120,48 @@ async function cashierOverride() {
     document.getElementById("pay-status").textContent = "Error sending to cashier ❌";
   }
 }
+// ... after cashierOverride() ends ...
 
+// --- NEW HELPER FUNCTIONS (Paste these here) ---
+
+function showMinOrderModal() {
+  const modal = document.getElementById('min-order-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    // Animation
+    const panel = modal.querySelector('div');
+    if(panel) {
+        panel.classList.remove('scale-95', 'opacity-0');
+        panel.classList.add('scale-100', 'opacity-100');
+    }
+  }
+}
+
+function closeMinOrderModal() {
+  const modal = document.getElementById('min-order-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function handleMinOrderCashierPay() {
+  // 1. Close the warning modal
+  closeMinOrderModal();
+
+  // 2. Generate a temporary UUID
+  const tempUuid = typeof crypto.randomUUID === 'function' 
+    ? crypto.randomUUID() 
+    : 'cashier-' + Date.now();
+    
+  activeQrUuid = tempUuid;
+
+  // 3. Open the "Pay Modal" so the user can see status
+  document.getElementById("pay-modal").classList.remove("hidden");
+  document.getElementById("pay-qr").innerHTML = ""; 
+  document.getElementById("pay-order").textContent = `Order: ${tempUuid}`;
+  document.getElementById("pay-status").textContent = "Sending to cashier...";
+
+  // 4. Trigger the existing cashier logic
+  cashierOverride();
+}
 
      
     // CUSTOMIZER
@@ -1398,6 +1434,36 @@ async function cashierOverride() {
 <button onclick="cancelPaymentFlow()" class="mt-3 w-full py-4 rounded-2xl font-black bg-gray-100">
   Cancel
 </button>
+
+  </div>
+</div>
+<div id="min-order-modal" class="hidden fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 transition-all duration-300">
+  <div class="bg-white rounded-[2rem] p-8 max-w-sm w-full text-center shadow-2xl transform transition-all scale-100">
+    
+    <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    </div>
+
+    <p class="text-gray-800 text-xl font-bold leading-snug mb-2">
+      Order Minimum Not Met
+    </p>
+    <p class="text-gray-500 text-base font-medium leading-relaxed mb-8">
+      Card payments require a $10.00 minimum. You can add more items or pay with cash/card at the counter.
+    </p>
+
+    <div class="flex flex-col gap-3">
+        <button onclick="handleMinOrderCashierPay()" class="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-black text-lg py-4 rounded-2xl shadow-lg transform active:scale-95 transition-all">
+            PAY AT CASHIER
+        </button>
+
+        <button onclick="closeMinOrderModal()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-lg py-4 rounded-2xl transform active:scale-95 transition-all">
+            Add More Items
+        </button>
+    </div>
+
+	  
 
   </div>
 </div>
