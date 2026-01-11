@@ -73,22 +73,7 @@ exports.handler = async (event) => {
     // 3. Create Order in DB
     const orderSummary = items.map(i => `${i.name} x${i.quantity}`).join("\n");
     
-    const { error: dbErr } = await supabase.from("orders").insert({
-      customer_name: guest_name || "Walk-In",
-      items,
-      total: finalTotalDollars,
-      status: "AWAITING_PAYMENT",
-      order_source: (source || "KIOSK").toUpperCase(),
-      order_summary: orderSummary,
-      confirmation_number: qr_uuid,
-      paid: false,
-      created_at: new Date().toISOString(),
-    });
-
-    if (dbErr) {
-      console.error("Supabase insert error:", dbErr);
-      return { statusCode: 500, body: JSON.stringify({ error: "DB insert failed" }) };
-    }
+ 
 
     const origin = event.headers.origin || "https://alscarryout.com";
 
