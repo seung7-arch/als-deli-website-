@@ -957,12 +957,17 @@ async function submitOrderManually() {
   manualSubmitBtn.disabled = true;
   manualSubmitBtn.textContent = "CREATING PAYMENT…";
 
-  const payload = {
-    guest_name: `Walk-In #${walkInCount}`,
-    items: orderLines,
-    total: Number(currentTotal.toFixed(2)),
-    source: "kiosk"
-  };
+ const payload = {
+  guest_name: `Walk-In #${walkInCount}`,
+  items: orderLines,
+  total: Number(currentTotal.toFixed(2)),
+  source: "kiosk"
+};
+
+console.log('=== SENDING TO BACKEND ===');
+console.log('currentTotal:', currentTotal);
+console.log('payload.total:', payload.total);
+console.log('items:', orderLines);
 
   try {
     const res = await fetch("/.netlify/functions/create-checkout-session", {
