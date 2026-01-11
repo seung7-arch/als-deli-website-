@@ -93,7 +93,7 @@ const session = await stripe.checkout.sessions.create({
   success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
   cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
   payment_intent_data: {
-    application_fee_amount: 50,
+    
     statement_descriptor_suffix: "ALS DELI",
     transfer_data: {
       destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
