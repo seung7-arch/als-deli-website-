@@ -28,54 +28,80 @@ exports.handler = async (event) => {
     };
   }
 
-  // Handle checkout.session.completed (for kiosk orders)
-  if (stripeEvent.type === 'checkout.session.completed') {
-    const session = stripeEvent.data.object;
-    const qr_uuid = session.metadata?.qr_uuid;
+ if (stripeEvent.type === 'checkout.session.completed') {
+  const session = stripeEvent.data.object;
+  const qr_uuid = session.metadata?.qr_uuid;
+  
+  if (!qr_uuid) {
+    console.warn("Missing qr_uuid in checkout.session.completed");
+    return { statusCode: 200, body: JSON.stringify({ received: true }) };
+  }
+
+  const paymentIntentId = session.payment_intent;
+  let cardLast4 = '';
+  
+  try {
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+    if (pi.payment_method) {
+      const pm = await stripe.paymentMethods.retrieve(pi.payment_method);
+      cardLast4 = pm.card?.last4 || '';
+    }
+  } catch (e) {
+    console.warn('Could not fetch payment method:', e.message);
+  }
+
+  // Fetch line items from Stripe
+  let items = [];
+  let orderSummary = '';
+  try {
+    const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
     
-    if (!qr_uuid) {
-      console.warn("Missing qr_uuid in checkout.session.completed");
-      return { statusCode: 200, body: JSON.stringify({ received: true }) };
-    }
-
-    const paymentIntentId = session.payment_intent;
-    let cardLast4 = '';
+    // Filter out tax line (it has "DC Sales Tax" in the name)
+    const foodItems = lineItems.data.filter(item => !item.description?.includes('DC Sales Tax'));
     
-    try {
-      const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
-      if (pi.payment_method) {
-        const pm = await stripe.paymentMethods.retrieve(pi.payment_method);
-        cardLast4 = pm.card?.last4 || '';
-      }
-    } catch (e) {
-      console.warn('Could not fetch payment method:', e.message);
-    }
+    items = foodItems.map(item => ({
+      name: item.description || 'Item',
+      price: item.amount_total / 100 / item.quantity, // Unit price
+      quantity: item.quantity,
+      modifiers: []
+    }));
+    
+    orderSummary = foodItems.map(item => {
+      const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
+      return `${item.description}${qty}`;
+    }).join('\n');
+  } catch (e) {
+    console.warn('Could not fetch line items:', e.message);
+  }
 
-  // Change from UPDATE to INSERT
-const { data, error } = await supabase
-  .from('orders')
-  .insert({
-    customer_name: session.metadata?.guest_name || 'Walk-In',
-    order_summary: '', // Build from line items if needed
-    items: [], // Fetch from session.line_items if needed
-    total: session.amount_total / 100,
-    status: 'pending',
-    order_source: session.metadata?.source || 'KIOSK',
-    confirmation_number: qr_uuid,
-    payment_intent_id: paymentIntentId,
-    payment_method: cardLast4 ? `Card ••${cardLast4}` : 'Card',
-    paid: true,
-    acknowledged: false,
-    refunded: false,
-    pickup_time: 'ASAP',
-    created_at: new Date().toISOString()
-  })
-  .select();
+  const { data, error } = await supabase
+    .from('orders')
+    .insert({
+      customer_name: session.metadata?.guest_name || 'Walk-In',
+      order_summary: orderSummary,
+      items: items,
+      total: session.amount_total / 100,
+      status: 'pending',
+      order_source: session.metadata?.source || 'KIOSK',
+      confirmation_number: qr_uuid,
+      payment_intent_id: paymentIntentId,
+      payment_method: cardLast4 ? `Card ••${cardLast4}` : 'Card',
+      paid: true,
+      acknowledged: false,
+      refunded: false,
+      pickup_time: 'ASAP',
+      created_at: new Date().toISOString()
+    })
+    .select();
 
-    if (error) {
-      console.error('Supabase update error:', error);
-      return { statusCode: 500, body: JSON.stringify({ error: 'Update failed' }) };
-    }
+  if (error) {
+    console.error('Supabase insert error:', error);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Insert failed' }) };
+  }
+
+  console.log('Kiosk order created:', data[0]?.id);
+  return { statusCode: 200, body: JSON.stringify({ received: true }) };
+}
 
     if (!data || data.length === 0) {
       console.error('No rows updated - confirmation_number mismatch:', qr_uuid);
