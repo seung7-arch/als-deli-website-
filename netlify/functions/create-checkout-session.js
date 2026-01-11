@@ -21,16 +21,17 @@ exports.handler = async (event) => {
 
     // 1. Calculate Subtotal
     let subtotalCents = 0;
-    const line_items = items.map((item) => {
-      const unitAmount = Math.round(Number(item.price) * 100);
-      subtotalCents += unitAmount * (item.quantity || 1);
-      return {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: String(item.name || "Item"),
-            description: item.modifiers?.length ? item.modifiers.join(", ") : undefined,
-          },
+   const line_items = items.map((item) => {
+  const unitAmount = Math.round(Number(item.price) * 100);
+  subtotalCents += unitAmount * (item.quantity || 1);
+
+  return {
+    price_data: {
+      currency: "usd",
+      product_data: {
+        name: String(item.name || "Item"),
+        description: item.modifiers?.length ? item.modifiers.join(", ") : undefined,  // ← Keep modifiers here
+      },
           unit_amount: unitAmount,
         },
         quantity: item.quantity || 1,
