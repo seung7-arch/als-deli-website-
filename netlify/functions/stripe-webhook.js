@@ -51,16 +51,26 @@ exports.handler = async (event) => {
       console.warn('Could not fetch payment method:', e.message);
     }
 
-    const { data, error } = await supabase
-      .from('orders')
-      .update({
-        paid: true,
-        status: 'pending',
-        payment_intent_id: paymentIntentId,
-        payment_method: cardLast4 ? `Card ••${cardLast4}` : 'Card'
-      })
-      .eq('confirmation_number', qr_uuid)
-      .select();
+  // Change from UPDATE to INSERT
+const { data, error } = await supabase
+  .from('orders')
+  .insert({
+    customer_name: session.metadata?.guest_name || 'Walk-In',
+    order_summary: '', // Build from line items if needed
+    items: [], // Fetch from session.line_items if needed
+    total: session.amount_total / 100,
+    status: 'pending',
+    order_source: session.metadata?.source || 'KIOSK',
+    confirmation_number: qr_uuid,
+    payment_intent_id: paymentIntentId,
+    payment_method: cardLast4 ? `Card ••${cardLast4}` : 'Card',
+    paid: true,
+    acknowledged: false,
+    refunded: false,
+    pickup_time: 'ASAP',
+    created_at: new Date().toISOString()
+  })
+  .select();
 
     if (error) {
       console.error('Supabase update error:', error);
