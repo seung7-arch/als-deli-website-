@@ -949,6 +949,40 @@ async function submitOrderManually() {
       })
     });
 
+	  // ... inside submitOrderManually function ...
+
+try {
+  const response = await fetch("/.netlify/functions/create-checkout-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  // --- NEW: Check for the $10 Limit Error ---
+  if (!response.ok) {
+    if (data.message) {
+      // Show the specific warning to the customer
+      alert(data.message);
+      return; // Stop here, do not proceed to Stripe
+    }
+    throw new Error(data.error || "Server error");
+  }
+  // ------------------------------------------
+
+  if (!data.checkout_url) {
+    throw new Error("Missing checkout_url or session_id from create-checkout-session");
+  }
+
+  // Redirect to Stripe
+  window.location.href = data.checkout_url;
+
+} catch (err) {
+  console.error(err);
+  alert("Error starting checkout: " + err.message);
+}
+
  const data = await res.json();
 const { checkout_url, session_id, qr_uuid } = data;
 
