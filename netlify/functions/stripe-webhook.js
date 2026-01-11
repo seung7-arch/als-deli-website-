@@ -38,18 +38,35 @@ exports.handler = async (event) => {
   }
 
   const paymentIntentId = session.payment_intent;
-  let cardLast4 = '';
-  
-  try {
-    const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
-    if (pi.payment_method) {
-      const pm = await stripe.paymentMethods.retrieve(pi.payment_method);
-      cardLast4 = pm.card?.last4 || '';
-    }
-  } catch (e) {
-    console.warn('Could not fetch payment method:', e.message);
-  }
+let cardLast4 = '';
+let originalItems = [];
 
+try {
+  const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+  
+  // Get card last4
+  if (pi.payment_method) {
+    const pm = await stripe.paymentMethods.retrieve(pi.payment_method);
+    cardLast4 = pm.card?.last4 || '';
+  }
+  
+  // Get original items from metadata
+  if (pi.metadata?.items_json) {
+    originalItems = JSON.parse(pi.metadata.items_json);
+  }
+} catch (e) {
+  console.warn('Could not fetch payment intent:', e.message);
+}
+// Fetch payment intent to get items from metadata
+let originalItems = [];
+try {
+  const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+  if (pi.metadata?.items_json) {
+    originalItems = JSON.parse(pi.metadata.items_json);
+  }
+} catch (e) {
+  console.warn('Could not fetch items from payment intent:', e.message);
+}
   // Fetch line items from Stripe
   let items = [];
   let orderSummary = '';
@@ -92,7 +109,7 @@ items = foodItems.map(item => {
     .insert({
       customer_name: session.metadata?.guest_name || 'Walk-In',
       order_summary: orderSummary,
-      items: items,
+      items: originalItems.length > 0 ? originalItems : items,
       total: session.amount_total / 100,
       status: 'pending',
       order_source: session.metadata?.source || 'KIOSK',
