@@ -103,14 +103,7 @@ exports.handler = async (event) => {
   return { statusCode: 200, body: JSON.stringify({ received: true }) };
 }
 
-    if (!data || data.length === 0) {
-      console.error('No rows updated - confirmation_number mismatch:', qr_uuid);
-      return { statusCode: 200, body: JSON.stringify({ received: true, note: '0 rows updated' }) };
-    }
-
-    console.log('Kiosk order marked paid:', data[0].id);
-    return { statusCode: 200, body: JSON.stringify({ received: true }) };
-  }
+  
 
   // Handle payment_intent.succeeded (for web orders - backwards compatibility)
   else if (stripeEvent.type === 'payment_intent.succeeded') {
