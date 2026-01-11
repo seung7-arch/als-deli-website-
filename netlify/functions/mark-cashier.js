@@ -45,7 +45,7 @@ exports.handler = async (event) => {
         status: 'pending',
         payment_method: 'cashier',
         source: 'kiosk',
-        qr_uuid: qr_uuid,
+        
         payment_intent_id: null
       }])
       .select()
