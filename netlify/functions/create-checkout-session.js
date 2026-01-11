@@ -44,20 +44,21 @@ exports.handler = async (event) => {
     const finalTotalCents = subtotalCents + taxAmountCents;
     const finalTotalDollars = finalTotalCents / 100;
 
-    // 3. CHECK: $10.00 MINIMUM
-    if (finalTotalDollars < 10.00) {
-      return {
-        statusCode: 400,
-        headers: { 
-          "Access-Control-Allow-Origin": "*",
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ 
-          error: "Order Minimum Not Met",
-          message: "The minimum order for card payments is $10.00. Please add another item, or click the PAY AT CASHIER button" 
-        })
-      };
-    }
+// 3. CHECK: $10.00 MINIMUM (check subtotal, not total with tax)
+const subtotalDollars = subtotalCents / 100;
+if (subtotalDollars < 10.00) {
+  return {
+    statusCode: 400,
+    headers: { 
+      "Access-Control-Allow-Origin": "*",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ 
+      error: "Order Minimum Not Met",
+      message: "The minimum order for card payments is $10.00. Please add another item, or click the PAY AT CASHIER button" 
+    })
+  };
+}
 
     // 4. Add Tax line item
     line_items.push({
