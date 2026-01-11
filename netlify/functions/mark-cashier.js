@@ -37,7 +37,7 @@ exports.handler = async (event) => {
     const { data: order, error } = await supabase
       .from('orders')
       .insert([{
-        guest_name: guest_name || 'Walk-In',
+         customer_name: guest_name || 'Walk-In',
         items: items,
         subtotal_amount: subtotal,
         tax_amount: tax,
