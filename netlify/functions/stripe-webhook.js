@@ -53,8 +53,13 @@ exports.handler = async (event) => {
   // Fetch line items from Stripe
   let items = [];
   let orderSummary = '';
-  try {
-    const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
+ try {
+  const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
+  
+  console.log('=== LINE ITEMS DEBUG ===');
+  console.log('Full line items:', JSON.stringify(lineItems.data, null, 2));
+  
+  const foodItems = lineItems.data.filter(item => !item.description?.includes('DC Sales Tax'));
     
     // Filter out tax line (it has "DC Sales Tax" in the name)
     const foodItems = lineItems.data.filter(item => !item.description?.includes('DC Sales Tax'));
