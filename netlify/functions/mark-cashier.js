@@ -34,22 +34,18 @@ exports.handler = async (event) => {
     const totalWithTax = subtotal + tax;
 
     // Create order in Supabase with cashier payment method
-    const { data: order, error } = await supabase
-      .from('orders')
-      .insert([{
-         customer_name: guest_name || 'Walk-In',
-        items: items,
-        subtotal_amount: subtotal,
-        tax_amount: tax,
-        total_amount: totalWithTax,
-        status: 'pending',
-        payment_method: 'cashier',
-        source: 'kiosk',
-        
-        payment_intent_id: null
-      }])
-      .select()
-      .single();
+   const { data: order, error } = await supabase
+  .from('orders')
+  .insert([{
+    customer_name: guest_name || 'Walk-In',
+    items: items,
+    total: totalWithTax,
+    status: 'pending',
+    payment_method: 'cashier',
+    order_source: 'kiosk'
+  }])
+  .select()
+  .single();
 
     if (error) {
       console.error('Supabase error:', error);
