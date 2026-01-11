@@ -953,7 +953,8 @@ function clearPaymentTimers() {
 async function payAtCashier() {
   try {
     // Get current order
-    const orderLines = JSON.parse(localStorage.getItem('orderLines') || '[]');
+    // Use the in-memory orderLines (already defined globally)
+
     if (orderLines.length === 0) {
       alert('Your cart is empty');
       return;
@@ -993,12 +994,12 @@ async function payAtCashier() {
 
     console.log('Cash order created:', order);
 
-    // Clear cart and close modal
-    localStorage.removeItem('orderLines');
-    walkInCount++;
-    localStorage.setItem('walkInCount', walkInCount);
-    renderOrderList();
-    closeMinimumModal();
+ // Clear cart and close modal
+clearOrder();  // This clears orderLines AND updates the UI
+closeMinimumModal();
+
+walkInCount++;
+localStorage.setItem('walkInCount', walkInCount);
 
     // Show success message
     alert(`Order #${order.confirmation_number} placed! Please pay at the cashier.`);
