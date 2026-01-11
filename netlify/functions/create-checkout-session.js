@@ -21,17 +21,16 @@ exports.handler = async (event) => {
 
     // 1. Calculate Subtotal
     let subtotalCents = 0;
-   const line_items = items.map((item) => {
-  const unitAmount = Math.round(Number(item.price) * 100);
-  subtotalCents += unitAmount * (item.quantity || 1);
-
-  return {
-    price_data: {
-      currency: "usd",
-      product_data: {
-        name: String(item.name || "Item"),
-        description: item.modifiers?.length ? item.modifiers.join(", ") : undefined,  // ← Keep modifiers here
-      },
+    const line_items = items.map((item) => {
+      const unitAmount = Math.round(Number(item.price) * 100);
+      subtotalCents += unitAmount * (item.quantity || 1);
+      return {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: String(item.name || "Item"),
+            description: item.modifiers?.length ? item.modifiers.join(", ") : undefined,
+          },
           unit_amount: unitAmount,
         },
         quantity: item.quantity || 1,
@@ -43,7 +42,7 @@ exports.handler = async (event) => {
     const finalTotalCents = subtotalCents + taxAmountCents;
     const finalTotalDollars = finalTotalCents / 100;
 
-    // --- NEW: FORCE $10.00 MINIMUM WITH CUSTOM MESSAGE ---
+    // --- CHECK: FORCE $10.00 MINIMUM ---
     if (finalTotalDollars < 10.00) {
       return {
         statusCode: 400,
@@ -53,13 +52,12 @@ exports.handler = async (event) => {
         },
         body: JSON.stringify({ 
             error: "Order Minimum Not Met",
-            message: "The minimum order card payment is $10.00. Please add another item, or click the PAY AT CASHIER button" 
+            message: "The minimum order for card payments is $10.00. Please add another item, or click the PAY AT CASHIER button" 
         })
       };
     }
-    // -----------------------------------------------------
 
-    // Add Tax line item to the list passed to Stripe
+    // Add Tax line item
     line_items.push({
       price_data: {
         currency: "usd",
@@ -74,37 +72,54 @@ exports.handler = async (event) => {
     // 3. Create Order in DB
     const orderSummary = items.map(i => `${i.name} x${i.quantity}`).join("\n");
     
- 
+    const { error: dbErr } = await supabase.from("orders").insert({
+      customer_name: guest_name || "Walk-In",
+      items,
+      total: finalTotalDollars,
+      status: "AWAITING_PAYMENT",
+      order_source: (source || "KIOSK").toUpperCase(),
+      order_summary: orderSummary,
+      confirmation_number: qr_uuid,
+      paid: false,
+      created_at: new Date().toISOString(),
+    });
+
+    if (dbErr) {
+      console.error("Supabase insert error:", dbErr);
+      return { statusCode: 500, body: JSON.stringify({ error: "DB insert failed" }) };
+    }
 
     const origin = event.headers.origin || "https://alscarryout.com";
 
-    // 4. Create Session (Card + Wallets, No Link)
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items,
-      payment_method_types: ["card"], 
-      payment_method_options: {
-        card: {
-          request_three_d_secure: 'any',
+    // 4. Create Stripe Session (DIRECT CHARGE MODE)
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        line_items,
+        payment_method_types: ["card"], 
+        payment_method_options: {
+          card: { request_three_d_secure: 'any' },
+        },
+        metadata: {
+          qr_uuid,
+          source: (source || "KIOSK").toUpperCase(),
+          guest_name: guest_name || "Walk-In",
+        },
+        success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
+        cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
+        
+        // VOLO FEE SETUP
+        payment_intent_data: {
+          application_fee_amount: 50, // You get exactly 50 cents
+          // NOTE: No transfer_data here. We use stripeAccount below.
         },
       },
-      metadata: {
-        qr_uuid,
-        source: (source || "KIOSK").toUpperCase(),
-        guest_name: guest_name || "Walk-In",
-      },
-      success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
-      cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
-      payment_intent_data: {
-        application_fee_amount: 50,
-        statement_descriptor_suffix: "ALS DELI",
-        transfer_data: {
-          destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
-        },
-        on_behalf_of: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
-        metadata: { qr_uuid },
-      },
-    });
+      {
+        // CRITICAL: This makes Al the Merchant. 
+        // He pays the Stripe fees. You just get the application_fee.
+        stripeAccount: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
+      }
+    );
 
     await supabase.from("orders").update({ payment_intent_id: session.payment_intent }).eq("confirmation_number", qr_uuid);
 
