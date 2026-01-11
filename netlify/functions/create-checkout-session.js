@@ -37,8 +37,28 @@ exports.handler = async (event) => {
       };
     });
 
-    // 2. Add Tax
+    // 2. Calculate Tax & Final Total
     const taxAmountCents = Math.round(subtotalCents * 0.10);
+    const finalTotalCents = subtotalCents + taxAmountCents;
+    const finalTotalDollars = finalTotalCents / 100;
+
+    // --- NEW: FORCE $10.00 MINIMUM WITH CUSTOM MESSAGE ---
+    if (finalTotalDollars < 10.00) {
+      return {
+        statusCode: 400,
+        headers: { 
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ 
+            error: "Order Minimum Not Met",
+            message: "The minimum order card payment is $10.00. Please add another item, or click the PAY AT CASHIER button" 
+        })
+      };
+    }
+    // -----------------------------------------------------
+
+    // Add Tax line item to the list passed to Stripe
     line_items.push({
       price_data: {
         currency: "usd",
@@ -48,12 +68,12 @@ exports.handler = async (event) => {
       quantity: 1,
     });
 
-    const finalTotalDollars = (subtotalCents + taxAmountCents) / 100;
     const qr_uuid = randomUUID();
     
     // 3. Create Order in DB
     const orderSummary = items.map(i => `${i.name} x${i.quantity}`).join("\n");
-    await supabase.from("orders").insert({
+    
+    const { error: dbErr } = await supabase.from("orders").insert({
       customer_name: guest_name || "Walk-In",
       items,
       total: finalTotalDollars,
@@ -65,24 +85,23 @@ exports.handler = async (event) => {
       created_at: new Date().toISOString(),
     });
 
+    if (dbErr) {
+      console.error("Supabase insert error:", dbErr);
+      return { statusCode: 500, body: JSON.stringify({ error: "DB insert failed" }) };
+    }
+
     const origin = event.headers.origin || "https://alscarryout.com";
 
-    // 4. Create Session (Force Card + Wallets, Kill Link)
+    // 4. Create Session (Card + Wallets, No Link)
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items,
-      // STRICTLY allow only 'card'.
-      // Note: 'card' includes Apple Pay and Google Pay automatically.
-      // Do NOT add 'link' here.
       payment_method_types: ["card"], 
-      
-      // Force 'Any' 3DS to encourage wallet usage
       payment_method_options: {
         card: {
           request_three_d_secure: 'any',
         },
       },
-      
       metadata: {
         qr_uuid,
         source: (source || "KIOSK").toUpperCase(),
