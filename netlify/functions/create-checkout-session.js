@@ -6,7 +6,9 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
-
+function calculateStripeFee(amountInCents) {
+  return Math.round(amountInCents * 0.029 + 30);
+}
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
@@ -67,41 +69,44 @@ exports.handler = async (event) => {
       quantity: 1,
     });
 
-    const qr_uuid = randomUUID();
-    const origin = event.headers.origin || "https://alscarryout.com";
+   const qr_uuid = randomUUID();
+const origin = event.headers.origin || "https://alscarryout.com";
 
-    // 5. Create Stripe Session (DESTINATION CHARGE with on_behalf_of)
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items,
-      payment_method_types: ["card"],
-      payment_method_options: {
-        card: { request_three_d_secure: 'any' },
-      },
-      metadata: {
-        qr_uuid,
-        source: (source || "KIOSK").toUpperCase(),
-        guest_name: guest_name || "Walk-In",
-      },
-      success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
-      cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
-      payment_intent_data: {
-        application_fee_amount: 50, // Volo gets exactly $0.50
-        statement_descriptor_suffix: "ALS DELI",
-        transfer_data: {
-          destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
-          // No amount specified - Stripe auto-calculates: Charge - App Fee - Stripe Fee
-        },
-        on_behalf_of: process.env.STRIPE_CONNECTED_ACCOUNT_ID, // Al's Deli pays Stripe fees
-        metadata: {
-          qr_uuid,
-          source: (source || "KIOSK").toUpperCase(),
-          items_json: JSON.stringify(items), // Full items array with all modifiers
-          tax_amount: (taxAmountCents / 100).toFixed(2),
-          subtotal_amount: (subtotalCents / 100).toFixed(2),
-        },
-      },
-    });
+// Calculate transfer amount
+const stripeFee = calculateStripeFee(finalTotalCents);
+const transferAmount = finalTotalCents - 50 - stripeFee;
+
+// 5. Create Stripe Session
+const session = await stripe.checkout.sessions.create({
+  mode: "payment",
+  line_items,
+  payment_method_types: ["card"],
+  payment_method_options: {
+    card: { request_three_d_secure: 'any' },
+  },
+  metadata: {
+    qr_uuid,
+    source: (source || "KIOSK").toUpperCase(),
+    guest_name: guest_name || "Walk-In",
+  },
+  success_url: `${origin}/kiosk-success?order=${qr_uuid}`,
+  cancel_url: `${origin}/kiosk-cancel?order=${qr_uuid}`,
+  payment_intent_data: {
+    application_fee_amount: 50,
+    statement_descriptor_suffix: "ALS DELI",
+    transfer_data: {
+      destination: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
+      amount: transferAmount,
+    },
+    metadata: {
+      qr_uuid,
+      source: (source || "KIOSK").toUpperCase(),
+      items_json: JSON.stringify(items),
+      tax_amount: (taxAmountCents / 100).toFixed(2),
+      subtotal_amount: (subtotalCents / 100).toFixed(2),
+    },
+  },
+});
 
     return {
       statusCode: 200,
