@@ -58,13 +58,21 @@ exports.handler = async (event) => {
     
     // Filter out tax line (it has "DC Sales Tax" in the name)
     const foodItems = lineItems.data.filter(item => !item.description?.includes('DC Sales Tax'));
-    
-    items = foodItems.map(item => ({
-      name: item.description || 'Item',
-      price: item.amount_total / 100 / item.quantity, // Unit price
-      quantity: item.quantity,
-      modifiers: []
-    }));
+
+items = foodItems.map(item => {
+  // Extract name and modifiers from description
+  // Stripe returns: "Coffee (Large)" or "Coffee (Large) - Extra Sugar, No Ice"
+  const parts = item.description?.split(' - ') || [];
+  const name = parts[0] || 'Item';
+  const modifiers = parts[1] ? parts[1].split(', ') : [];
+  
+  return {
+    name: name,
+    price: item.amount_total / 100 / item.quantity,
+    quantity: item.quantity,
+    modifiers: modifiers
+  };
+});
     
     orderSummary = foodItems.map(item => {
       const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
