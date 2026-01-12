@@ -675,6 +675,8 @@
       miniVoiceControls.classList.remove('hidden');
       clearTranscript();
       startCall();
+		restartIdleTimer();
+
     }
 
     function activateMenuMode() {
@@ -685,13 +687,24 @@
       leftPanelTitle.textContent = "Menu";
       miniVoiceControls.classList.add('hidden');
       if (isCallActive) endCall();
+		restartIdleTimer();
+
     }
 
-    function returnToLanding() {
-      if (isCallActive) endCall();
-      splitScreen.classList.add('hidden');
-      landingPage.classList.remove('hidden');
-    }
+   function returnToLanding() {
+  if (isCallActive) endCall();
+
+  // Safety: close any overlays
+  document.getElementById("customizer-overlay")?.classList.add("hidden");
+  document.getElementById("pay-modal")?.classList.add("hidden");
+  document.getElementById("min-order-modal")?.classList.add("hidden");
+
+  splitScreen.classList.add('hidden');
+  landingPage.classList.remove('hidden');
+
+  restartIdleTimer();
+}
+
 
     vapiToggleBtn.addEventListener('click', () => {
       if (isCallActive) endCall();
@@ -944,6 +957,85 @@ let pollTimer = null;
 let timeoutTimer = null;
 let activeQrUuid = null;
 const PAYMENT_TIMEOUT_MS = 120000; // 120 seconds
+
+	  // ===============================
+// AUTO-RESET TO LANDING AFTER IDLE
+// ===============================
+const IDLE_TIMEOUT_MS = 120000; // 2 minutes
+
+let idleTimer = null;
+
+// Treat these as "user is busy, don't auto-reset"
+function isBlockingIdleReset() {
+  const payModal = document.getElementById("pay-modal");
+  const minModal = document.getElementById("min-order-modal");
+  const customizer = document.getElementById("customizer-overlay");
+
+  const payOpen = payModal && !payModal.classList.contains("hidden");
+  const minOpen = minModal && !minModal.classList.contains("hidden");
+  const custOpen = customizer && !customizer.classList.contains("hidden");
+
+  // If payment flow is active (or modals open), don't kick them out.
+  return payOpen || minOpen || custOpen || !!activeQrUuid;
+}
+
+function resetToLandingHard() {
+  // Stop voice if running
+  if (isCallActive) endCall();
+
+  // Stop any payment polling/timers and close modals safely
+  try { cancelPaymentFlow(); } catch (_) {}
+  try { closeMinOrderModal(); } catch (_) {}
+  try { closeCustomizer(); } catch (_) {}
+
+  // Clear cart
+  clearOrder();
+
+  // Go home
+  returnToLanding();
+}
+
+function restartIdleTimer() {
+  if (idleTimer) clearTimeout(idleTimer);
+
+  idleTimer = setTimeout(() => {
+    // Only reset if they are on the ordering screen AND not in the middle of payment/customizing
+    const orderingScreenOpen = !splitScreen.classList.contains("hidden");
+    if (!orderingScreenOpen) return;
+
+    if (isBlockingIdleReset()) {
+      // If they're mid-payment/customizing, don't reset — just restart the timer
+      restartIdleTimer();
+      return;
+    }
+
+    resetToLandingHard();
+  }, IDLE_TIMEOUT_MS);
+}
+
+// Call once on load to start it
+function initIdleReset() {
+  const activityEvents = [
+    "touchstart", "touchmove",
+    "mousedown", "mousemove",
+    "click",
+    "scroll",
+    "keydown"
+  ];
+
+  activityEvents.forEach(evt => {
+    // capture:true helps catch events before they get stopped by overlays
+    document.addEventListener(evt, restartIdleTimer, { passive: true, capture: true });
+  });
+
+  // Also restart if tab becomes visible again
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) restartIdleTimer();
+  });
+
+  restartIdleTimer();
+}
+
 
 function clearPaymentTimers() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
@@ -1349,6 +1441,8 @@ function closeMinOrderModal() {
       toggleSec("sec-sauces", showSauces);
 
       document.getElementById("customizer-overlay").classList.remove("hidden");
+		restartIdleTimer();
+
     }
 
     function needsPlatterMeatChoice(nameRaw) {
@@ -1477,6 +1571,8 @@ function closeMinOrderModal() {
         setupVapiEvents();
       };
     })(document, "script");
+	  initIdleReset();
+
   </script>
 <div id="pay-modal" class="hidden fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-6">
   <div class="bg-white rounded-3xl p-6 w-full max-w-md text-center">
