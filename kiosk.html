@@ -1073,14 +1073,29 @@ async function payAtCashier() {
       throw new Error(data?.error || "Failed to create order");
     }
 
-    // Success - clear cart and show confirmation
-    clearOrder();
-    closeMinimumModal();
+    // Success - clear cart and update modal
+    const modal = document.getElementById('min-order-modal');
+    const modalText = modal.querySelector('p.text-gray-800');
+    const modalDesc = modal.querySelector('p.text-gray-500');
+    const buttons = modal.querySelector('.flex.flex-col');
     
-    walkInCount++;
-    localStorage.setItem('walkInCount', walkInCount);
-
-    alert(`Order #${data.confirmation_number} placed! Please pay at the cashier.`);
+    // Update modal to success state
+    modalText.textContent = "Order Sent Successfully!";
+    modalDesc.textContent = `Order #${data.confirmation_number} has been sent to the kitchen. Please pay at the cashier.`;
+    buttons.style.display = 'none';
+    
+    // Wait 5 seconds then reset
+    setTimeout(() => {
+      modal.classList.add('hidden');
+      buttons.style.display = 'flex';
+      modalText.textContent = "Order Minimum Not Met";
+      modalDesc.textContent = "Card payments require a $10.00 minimum. You can add more items or pay with cash/card at the counter.";
+      
+      clearOrder();
+      walkInCount++;
+      localStorage.setItem('walkInCount', walkInCount);
+      returnToLanding();
+    }, 5000);
 
   } catch (err) {
     console.error('payAtCashier error:', err);
