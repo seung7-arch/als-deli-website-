@@ -1044,63 +1044,53 @@ function clearPaymentTimers() {
 
 async function payAtCashier() {
   try {
-    // Get current order
-    // Use the in-memory orderLines (already defined globally)
-
     if (orderLines.length === 0) {
       alert('Your cart is empty');
       return;
     }
 
-    // Calculate totals
+    // Calculate totals (subtotal only, backend will add tax)
     let subtotal = 0;
     orderLines.forEach(item => {
       subtotal += Number(item.price) * (item.quantity || 1);
     });
-    const tax = Math.round(subtotal * 0.10 * 100) / 100;
-    const total = subtotal + tax;
 
-    // Create order in Supabase
-    const { data: order, error } = await supabase
-      .from('orders')
-      .insert([{
-        guest_name: `Walk-In #${walkInCount}`,
+    // Call the backend function
+    const res = await fetch("/.netlify/functions/mark-cashier", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        qr_uuid: `CASH-${Date.now()}`,
         items: orderLines,
-        subtotal_amount: subtotal,
-        tax_amount: tax,
-        total_amount: total,
-        status: 'pending',
-        payment_method: 'cash',
-        source: 'kiosk',
-        qr_uuid: null,
-        payment_intent_id: null
-      }])
-      .select()
-      .single();
+        total: subtotal,
+        guest_name: `Walk-In #${walkInCount}`
+      })
+    });
 
-    if (error) {
-      console.error('Error creating cash order:', error);
-      alert('Failed to create order. Please try again.');
-      return;
+    const data = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(data?.error || "Failed to create order");
     }
 
-    console.log('Cash order created:', order);
+    // Success - clear cart and show confirmation
+    clearOrder();
+    closeMinimumModal();
+    
+    walkInCount++;
+    localStorage.setItem('walkInCount', walkInCount);
 
- // Clear cart and close modal
-clearOrder();  // This clears orderLines AND updates the UI
-closeMinimumModal();
-
-walkInCount++;
-localStorage.setItem('walkInCount', walkInCount);
-
-    // Show success message
-    alert(`Order #${order.confirmation_number} placed! Please pay at the cashier.`);
+    alert(`Order #${data.confirmation_number} placed! Please pay at the cashier.`);
 
   } catch (err) {
     console.error('payAtCashier error:', err);
     alert('An error occurred. Please try again.');
   }
 }
+
+  
+
+
 async function submitOrderManually() {
   if (orderLines.length === 0) return;
 
