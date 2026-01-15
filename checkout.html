@@ -370,7 +370,7 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            amount: total,
+            amount: subtotal,
             customerName: name,
             items: orderData.items.map(item => ({
               name: item.name,
